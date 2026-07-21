@@ -1,5 +1,5 @@
 {
-  "name": "neton-application-front",
+  "name": "newgate-front",
   "private": true,
   "scripts": {
     "dev": "pnpm --filter @neton/application-front-shell dev",
