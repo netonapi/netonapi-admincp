@@ -7,5 +7,6 @@ export default function Page() { return <ResourcePage config={{ resourceKey: "ga
   { key: "cacheReadPrice", label: "缓存读", defaultValue: "0" },
   { key: "cacheWritePrice", label: "缓存写", defaultValue: "0" },
   { key: "perRequestPrice", label: "按次(μUSD)", type: "number", table: false },
+  { key: "defaultMaxOutputTokens", label: "默认输出上限", type: "number", table: false },
   { key: "source", label: "价源" },
 ] }} />; }

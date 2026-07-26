@@ -11,6 +11,7 @@ import {
 interface TokenVO {
   id: number; userId: number; name: string; display: string;
   quotaBudget?: number | null; quotaUsed: number; expiresAt?: number | null;
+  rpmLimit?: number | null; tpmLimit?: number | null; concurrencyLimit?: number | null;
   status: number; createdAt?: number | null;
 }
 
@@ -23,7 +24,7 @@ export default function Page() {
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const [creating, setCreating] = React.useState(false);
-  const [form, setForm] = React.useState({ name: "", quotaBudget: "" });
+  const [form, setForm] = React.useState({ name: "", quotaBudget: "", rpmLimit: "", tpmLimit: "", concurrencyLimit: "" });
   const [issued, setIssued] = React.useState<IssuedTokenVO | null>(null);
 
   const load = React.useCallback(async () => {
@@ -41,8 +42,12 @@ export default function Page() {
     try {
       const body: Record<string, unknown> = { userId: Number(userId), name: form.name };
       if (form.quotaBudget) body.quotaBudget = Number(form.quotaBudget);
+      // 限流留空 = 不限；不限意味着单个令牌可打爆上游配额，建议至少设 RPM
+      if (form.rpmLimit) body.rpmLimit = Number(form.rpmLimit);
+      if (form.tpmLimit) body.tpmLimit = Number(form.tpmLimit);
+      if (form.concurrencyLimit) body.concurrencyLimit = Number(form.concurrencyLimit);
       const vo = await apiWrite<IssuedTokenVO>(`/admin/gateway/token/create`, "POST", body);
-      setIssued(vo); setCreating(false); setForm({ name: "", quotaBudget: "" });
+      setIssued(vo); setCreating(false); setForm({ name: "", quotaBudget: "", rpmLimit: "", tpmLimit: "", concurrencyLimit: "" });
       void load();
     } catch (cause) { setError((cause as Error).message); }
   }
@@ -53,21 +58,24 @@ export default function Page() {
   }
 
   const columns: DataColumn<TokenVO>[] = [
-    { key: "id", header: "ID" },
-    { key: "name", header: "名称" },
-    { key: "display", header: "令牌" },
-    { key: "quotaUsed", header: "已用 μUSD" },
-    { key: "quotaBudget", header: "预算 μUSD", render: (r) => r.quotaBudget ?? "不限" },
-    { key: "status", header: "状态", render: (r) => <StatusBadge value={r.status} /> },
-    { key: "createdAt", header: "创建时间", render: (r) => formatDateTime(r.createdAt) },
-    { key: "actions", header: "操作", render: (row) => <RowActions actions={actions(row)} /> },
+    { key: "id", header: "ID", cell: (r) => r.id },
+    { key: "name", header: "名称", cell: (r) => r.name },
+    { key: "display", header: "令牌", cell: (r) => r.display },
+    { key: "quotaUsed", header: "已用 μUSD", cell: (r) => r.quotaUsed },
+    { key: "quotaBudget", header: "预算 μUSD", cell: (r) => r.quotaBudget ?? "不限" },
+    { key: "rpmLimit", header: "RPM", cell: (r) => r.rpmLimit ?? "不限" },
+    { key: "tpmLimit", header: "TPM", cell: (r) => r.tpmLimit ?? "不限" },
+    { key: "concurrencyLimit", header: "并发", cell: (r) => r.concurrencyLimit ?? "不限" },
+    { key: "status", header: "状态", cell: (r) => <StatusBadge active={r.status === 1}>{r.status === 1 ? "启用" : "禁用"}</StatusBadge> },
+    { key: "createdAt", header: "创建时间", cell: (r) => formatDateTime(r.createdAt) },
+    { key: "actions", header: "操作", cell: (row) => <RowActions primary={actions(row)} /> },
   ];
 
   const actions = (row: TokenVO): RowAction[] => [
     row.status === 1
       ? { label: "禁用", onClick: () => void setStatus(row, 0) }
       : { label: "启用", onClick: () => void setStatus(row, 1) },
-    { label: "删除", tone: "danger", onClick: async () => { await apiWrite<void>(`/admin/gateway/token/delete/${row.id}`, "DELETE"); void load(); } },
+    { label: "删除", danger: true, kind: "delete", onClick: async () => { await apiWrite<void>(`/admin/gateway/token/delete/${row.id}`, "DELETE"); void load(); } },
   ];
 
   return (
@@ -83,8 +91,11 @@ export default function Page() {
       <Drawer open={creating} onClose={() => setCreating(false)} title={`为用户 ${userId} 创建令牌`}
         footer={<><Button variant="outline" onClick={() => setCreating(false)}>取消</Button><Button onClick={() => void create()} disabled={!form.name}>创建</Button></>}>
         <div className="space-y-4">
-          <Field label="名称" required><Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /></Field>
+          <Field label="名称"><Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /></Field>
           <Field label="预算 μUSD（留空不限）"><Input value={form.quotaBudget} onChange={(e) => setForm({ ...form, quotaBudget: e.target.value })} /></Field>
+          <Field label="RPM 上限（留空不限）"><Input value={form.rpmLimit} onChange={(e) => setForm({ ...form, rpmLimit: e.target.value })} /></Field>
+          <Field label="TPM 上限（留空不限）"><Input value={form.tpmLimit} onChange={(e) => setForm({ ...form, tpmLimit: e.target.value })} /></Field>
+          <Field label="并发上限（留空不限）"><Input value={form.concurrencyLimit} onChange={(e) => setForm({ ...form, concurrencyLimit: e.target.value })} /></Field>
         </div>
       </Drawer>
 

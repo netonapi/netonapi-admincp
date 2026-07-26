@@ -8,5 +8,6 @@ export default defineFrontModule({
     { key: "gateway/token/index", path: "/gateway/token", entry: "token-list", rendering: "client" },
     { key: "gateway/price/index", path: "/gateway/price", entry: "price-list", rendering: "client" },
     { key: "gateway/log/index", path: "/gateway/log", entry: "log-list", rendering: "client" },
+    { key: "gateway/settlement/index", path: "/gateway/settlement", entry: "settlement-list", rendering: "client" },
   ],
 });
