@@ -21,6 +21,30 @@ const { default: packages } = (await import(
   pathToFileURL(path.join(shellDir, "front.modules.ts")).href
 )) as { default: string[] };
 
+/**
+ * 每个 page 的 entry 必须真的能解析到文件。
+ *
+ * `file:` 依赖是 pnpm 在安装时**硬链接**过来的：改已有文件会立刻生效（同一个 inode），
+ * 但**新增的文件要等重装才会出现在依赖里**。于是「模块加了新页面但没在 shell 重装」
+ * 的后果是——manifest 读到了（manifest.ts 是老文件，硬链接，永远同步），页面文件却不在，
+ * 生成的 `import()` 指向一个不存在的模块。踩过一次：页面写完了、typecheck 全绿、
+ * 产物里根本没有它。
+ *
+ * 这里提前做 shell 构建期会做的那次解析，把失败挪到有明确修复指令的地方。
+ */
+function assertEntryResolvable(pkg: string, entry: string) {
+  const spec = `${pkg}/pages/${entry}`;
+  try {
+    shellRequire.resolve(spec);
+  } catch {
+    throw new Error(
+      `[registry] ${pkg} 的 manifest 声明了页面 "${entry}"，但 ${spec} 解析不到。\n` +
+        `  多半是模块仓新增了页面而 shell 这边没重装（file: 依赖不会自动带上新文件）。\n` +
+        `  修复：在 neton-application-front 仓库根跑 pnpm install`,
+    );
+  }
+}
+
 interface Loaded { pkg: string; manifest: FrontModuleManifest; }
 const loaded: Loaded[] = [];
 for (const pkg of packages) {
@@ -51,6 +75,7 @@ for (const { pkg, manifest } of loaded) {
     if (pagePaths.has(p.path))
       throw new Error(`[registry] 重复路由 "${p.path}"：${pagePaths.get(p.path)} vs ${pkg}`);
     pagePaths.set(p.path, pkg);
+    assertEntryResolvable(pkg, p.entry);
   }
 }
 for (const { pkg, manifest } of loaded)
