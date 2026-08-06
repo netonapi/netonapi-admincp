@@ -23,6 +23,9 @@ importers:
       '@neton/application-front-contract':
         specifier: workspace:*
         version: link:../../packages/front-contract
+      '@neton/application-front-cs':
+        specifier: file:../../../neton-application-front-cs
+        version: file:../neton-application-front-cs(@neton/application-front-contract@packages+front-contract)(@neton/application-front-kit@packages+front-kit)(@neton/application-front-resource@packages+front-resource)(@neton/application-front-runtime@packages+front-runtime)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
       '@neton/application-front-infra':
         specifier: file:../../../neton-application-front-infra
         version: file:../neton-application-front-infra(@neton/application-front-contract@packages+front-contract)(@neton/application-front-kit@packages+front-kit)(@neton/application-front-resource@packages+front-resource)(@neton/application-front-runtime@packages+front-runtime)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
@@ -517,6 +520,16 @@ packages:
 
   '@jridgewell/trace-mapping@0.3.31':
     resolution: {integrity: sha512-zzNR+SdQSDJzc8joaeP8QQoCQr8NuYx2dIIytl1QeBEZHJ9uW6hebsrYgbz8hJwUQao3TWCMtmfV8Nu1twOLAw==, tarball: https://registry.npmmirror.com/@jridgewell/trace-mapping/-/trace-mapping-0.3.31.tgz}
+
+  '@neton/application-front-cs@file:../neton-application-front-cs':
+    resolution: {directory: ../neton-application-front-cs, type: directory}
+    peerDependencies:
+      '@neton/application-front-contract': ^1.0.0
+      '@neton/application-front-kit': ^1.0.0
+      '@neton/application-front-resource': ^1.0.0
+      '@neton/application-front-runtime': ^1.0.0
+      react: ^19.0.0
+      react-dom: ^19.0.0
 
   '@neton/application-front-infra@file:../neton-application-front-infra':
     resolution: {directory: ../neton-application-front-infra, type: directory}
@@ -1997,6 +2010,15 @@ snapshots:
     dependencies:
       '@jridgewell/resolve-uri': 3.1.2
       '@jridgewell/sourcemap-codec': 1.4.14
+
+  '@neton/application-front-cs@file:../neton-application-front-cs(@neton/application-front-contract@packages+front-contract)(@neton/application-front-kit@packages+front-kit)(@neton/application-front-resource@packages+front-resource)(@neton/application-front-runtime@packages+front-runtime)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)':
+    dependencies:
+      '@neton/application-front-contract': link:packages/front-contract
+      '@neton/application-front-kit': link:packages/front-kit
+      '@neton/application-front-resource': link:packages/front-resource
+      '@neton/application-front-runtime': link:packages/front-runtime
+      react: 19.2.7
+      react-dom: 19.2.7(react@19.2.7)
 
   '@neton/application-front-infra@file:../neton-application-front-infra(@neton/application-front-contract@packages+front-contract)(@neton/application-front-kit@packages+front-kit)(@neton/application-front-resource@packages+front-resource)(@neton/application-front-runtime@packages+front-runtime)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)':
     dependencies:

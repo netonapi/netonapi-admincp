@@ -6,4 +6,5 @@ export default [
   "@neton/application-front-privchat",
   "@neton/application-front-payment",
   "@neton/application-front-platform",
+  "@neton/application-front-cs",
 ];
