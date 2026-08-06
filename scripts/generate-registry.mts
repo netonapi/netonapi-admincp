@@ -4,6 +4,7 @@
  * apps/shell/src/generated/modules.generated.ts（静态 import()，Next 可分析拆包）。
  * 任何校验失败即抛错中断构建。
  */
+import { readdirSync, readFileSync } from "node:fs";
 import { mkdir, writeFile } from "node:fs/promises";
 import { createRequire } from "node:module";
 import path from "node:path";
@@ -45,9 +46,51 @@ function assertEntryResolvable(pkg: string, entry: string) {
   }
 }
 
+/**
+ * `file:` 依赖的副本必须跟模块仓的源码一样全。
+ *
+ * [assertEntryResolvable] 只看得见「页面入口」，看不见模块内部新增的文件。今天就栽在
+ * 这上面：payment 模块抽了个 `src/lib/freeze.ts` 给两个页面共用，页面入口都还在、
+ * 产品 shell 的 typecheck 也全绿，但上游 shell 里那份副本没有这个文件，
+ * 报的是「Type 'unknown' is not assignable to ReactNode」——跟真实原因（副本缺文件）
+ * 毫无关系的错，够查一阵子。
+ *
+ * 所以这里直接比对文件清单：源码有、副本没有 → 当场说清楚是装的问题。
+ */
+function assertInstalledCopyIsComplete(pkg: string) {
+  const deps = JSON.parse(readFileSync(path.join(shellDir, "package.json"), "utf8")).dependencies ?? {};
+  const spec: string | undefined = deps[pkg];
+  if (!spec?.startsWith("file:")) return; // 只有本地 file: 依赖会有这个问题
+  const sourceDir = path.resolve(shellDir, spec.slice("file:".length));
+  const installedDir = path.dirname(shellRequire.resolve(`${pkg}/manifest`)).replace(/\/src$/, "");
+  const list = (root: string): string[] => {
+    const out: string[] = [];
+    const walk = (dir: string, prefix: string) => {
+      for (const e of readdirSync(dir, { withFileTypes: true })) {
+        if (e.name === "node_modules" || e.name.startsWith(".")) continue;
+        const rel = prefix ? `${prefix}/${e.name}` : e.name;
+        if (e.isDirectory()) walk(path.join(dir, e.name), rel);
+        else out.push(rel);
+      }
+    };
+    try { walk(path.join(root, "src"), ""); } catch { /* 没有 src 就当空 */ }
+    return out;
+  };
+  const missing = list(sourceDir).filter((f) => !list(installedDir).includes(f));
+  if (missing.length > 0) {
+    throw new Error(
+      `[registry] ${pkg} 装到 shell 里的副本缺文件：${missing.slice(0, 5).join(", ")}` +
+        `${missing.length > 5 ? ` …共 ${missing.length} 个` : ""}\n` +
+        `  file: 依赖是安装时硬链接过去的，改已有文件会同步，**新增文件不会**。\n` +
+        `  修复：在本仓库根跑 pnpm install`,
+    );
+  }
+}
+
 interface Loaded { pkg: string; manifest: FrontModuleManifest; }
 const loaded: Loaded[] = [];
 for (const pkg of packages) {
+  assertInstalledCopyIsComplete(pkg);
   const manifestPath = shellRequire.resolve(`${pkg}/manifest`);
   const mod = await import(pathToFileURL(manifestPath).href);
   const manifest: FrontModuleManifest | undefined = mod.default ?? mod.manifest;
