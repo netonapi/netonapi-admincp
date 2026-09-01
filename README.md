@@ -13,5 +13,5 @@
 ```bash
 pnpm install
 pnpm registry   # 由 apps/shell/front.modules.ts 生成页面注册表（prebuild 自动跑）
-pnpm dev        # NETON_BACKEND_URL 默认 http://localhost:8080
+pnpm dev        # NETON_BACKEND_URL 默认 http://localhost:7080
 ```
