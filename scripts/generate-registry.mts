@@ -51,6 +51,22 @@ for (const { pkg, manifest } of loaded) {
     if (pagePaths.has(p.path))
       throw new Error(`[registry] 重复路由 "${p.path}"：${pagePaths.get(p.path)} vs ${pkg}`);
     pagePaths.set(p.path, pkg);
+    // entry 必须真能解析。上面几道校的都是 manifest 自己说了什么，这一道校它说的东西在不在：
+    // 生成的 registry 是 `import("<pkg>/pages/<entry>")`，解析不到要等到 Next 构建才炸，
+    // 而且报的是 module-not-found，看不出跟 manifest 有关。
+    // 触发方式通常不是写错文件名，而是模块仓以 `file:` 依赖装进来：pnpm 只链接 install 当时
+    // 存在的文件，之后在模块仓里新增的页面不会自己出现在 node_modules 里。而 manifest 是
+    // 原地改的（同一个 inode），新 key 立刻可见 —— 于是表现为「manifest 有 8 页、
+    // node_modules 里只有 5 页」，而本脚本原本对此一无所知。
+    try {
+      shellRequire.resolve(`${pkg}/pages/${p.entry}`);
+    } catch {
+      throw new Error(
+        `[registry] ${pkg} 的 page "${p.key}" 指向 ./pages/${p.entry}，但该文件从 shell 解析不到。` +
+          `若这是模块仓里新增的页面：file: 依赖是 install 时链接的，新增文件不会自动出现，` +
+          `请在本仓重新执行一次 install。`,
+      );
+    }
   }
 }
 for (const { pkg, manifest } of loaded)
