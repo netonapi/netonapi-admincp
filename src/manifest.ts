@@ -9,5 +9,8 @@ export default defineFrontModule({
     { key: "gateway/price/index", path: "/gateway/price", entry: "price-list", rendering: "client" },
     { key: "gateway/log/index", path: "/gateway/log", entry: "log-list", rendering: "client" },
     { key: "gateway/settlement/index", path: "/gateway/settlement", entry: "settlement-list", rendering: "client" },
+    { key: "gateway/group/index", path: "/gateway/group", entry: "group-list", rendering: "client" },
+    { key: "gateway/redemption/index", path: "/gateway/redemption", entry: "redemption-list", rendering: "client" },
+    { key: "gateway/group-override/index", path: "/gateway/group-override", entry: "group-override-list", rendering: "client" },
   ],
 });
