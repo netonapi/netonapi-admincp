@@ -37,9 +37,11 @@ const EMPTY_GEN = { quotaMicro: "", count: "1", expiresAt: "", note: "" };
  * ResourcePage 的路径约定（create / update / delete/{id}）一条都对不上。
  *
  * 两处要如实说明的地方：
- * - 列表返回的是**完整码**（后端 format() 只是加分隔符，不是打码）。所以「明文只展示一次」
- *   在这里并不成立：拿到 gateway:redemption:list 的人就能读到所有未使用的码并自行兑换。
- *   在后端加脱敏之前，这条权限不能给只读审计角色 —— 页面下方也照实写了，不假装有保护。
+ * - 列表返回的是**脱敏码**（后端 redact()：保首尾两组、中间两组打 `*`）。完整明文只在
+ *   /generate 那一刻下发一次，之后管理端任何响应都给不出来 —— 所以「明文只展示一次」在这里
+ *   是成立的，gateway:redemption:list 可以交给只读审计角色。首尾两组留着是因为客服要能拿
+ *   客户电话里念的码对上库里哪一行，客户不会报 id。代价是运营弄丢了生成时那份导出就找不
+ *   回来，处置与 API 令牌同纪律：整批作废 + 重新生成，不找回。
  * - 批次可能**半失败**：logic 逐张插入，中途失败会把已插入的留下并抛 500，消息里带批次号。
  *   apiWrite 抛的就是后端 message，所以那句话会原样显示给运营，据此按批次号回查即可，
  *   不需要前端猜哪些成功了。
@@ -197,8 +199,9 @@ export default function Page() {
       </section>
 
       <p className="text-xs text-[var(--muted-foreground)]">
-        注意：列表返回的是完整兑换码，不是脱敏值 —— 能看这一页的人就能兑换其中任何一张未使用的码。
-        在后端加脱敏之前，不要把 gateway:redemption:list 授予只读审计角色。
+        列表里的兑换码是脱敏的：首尾两组为真、中间两组打 *，够跟客户手里那张码对上号，
+        不能用来兑换。完整明文只在「生成」那一刻下发一次，关掉抽屉就再也取不到 ——
+        弄丢了就整批作废重新生成，与 API 令牌同纪律。
         「状态」列的过期判定由后端算，前端不重复实现。
       </p>
 
@@ -226,7 +229,7 @@ export default function Page() {
 
       <Drawer open={issued != null} onClose={() => setIssued(null)}
         title={issued && issued.codes.length > 0 ? `批次 ${issued.batchId} 已生成 ${issued.codes.length} 张` : `批次 ${issued?.batchId ?? ""}`}
-        description="复制后立即分发；列表里也能查到这些码（后端未脱敏），所以别把它当成一次性密钥。"
+        description="这是这批码唯一一次以完整明文出现：关掉抽屉后列表里只剩脱敏形态，取不回来。请立刻复制并分发；弄丢了就整批作废、重新生成。"
         footer={<Button onClick={() => setIssued(null)}>关闭</Button>}>
         {issued && issued.codes.length > 0 && (
           <div className="space-y-3">
@@ -259,8 +262,8 @@ export default function Page() {
         </dl>}
       </Drawer>
 
-      <ConfirmDialog open={revoking != null} title={`作废兑换码 ${revoking?.code ?? ""}`}
-        description="作废后这张码兑不出去，且不能恢复（后端没有反向操作）。已使用的码不会被作废。"
+      <ConfirmDialog open={revoking != null} title={`作废兑换码 #${revoking?.id ?? 0} ${revoking?.code ?? ""}`}
+        description="作废后这张码兑不出去，且不能恢复（后端没有反向操作）。已使用的码不会被作废。列表里的码是脱敏的，确认时以 id 为准 —— 作废接口本来也是按 id 走的。"
         confirmLabel="确认作废" onCancel={() => setRevoking(null)} onConfirm={() => revoking && void disableOne(revoking)} />
 
       <Drawer open={batchStop} onClose={() => setBatchStop(false)} title="整批作废"
