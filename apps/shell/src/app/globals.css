@@ -1,5 +1,16 @@
 @import "tailwindcss";
-@source "../../../../packages";
+/*
+ * Tailwind 扫描范围。
+ *
+ * 🔴 shell 自己的 src 是自动扫描的，但 **UI 套件、工作区宿主和所有业务模块页面都在
+ * node_modules 里**（共享包与模块都是 file: 依赖），不显式 @source 就不会被扫到 ——
+ * 只出现在那些文件里的类不会进产物，页面不报错，只是布局悄悄塌掉（网格退化成单列）。
+ *
+ * 各发行版的 packages/ 目录已经清空（共享实现统一在上游），只留 node_modules 这一条。
+ */
+@source "../../node_modules/@neton";
+@source "../../../node_modules/@neton";
+@source "../../../node_modules/@privchat";
 
 /* shadcn radius scale: menus < controls < navigation < surfaces. */
 @theme inline {
@@ -64,13 +75,18 @@
   gap: 0.75rem;
 }
 
-/* 用户编号 / 用户名 / 昵称 / 手机号 / 状态 / 包含机器人 / 按钮 */
+/*
+ * 会员筛选栏：编号 / 用户名 / 昵称 / 手机号 / 状态 / 等级 / 分组 / 含机器人 / 含游客 / 按钮
+ *
+ * 写死列数会在加字段时静默错位（列数对不上，条目自己换行、按钮被挤走），所以用
+ * auto-fit 让列数跟着条目走；按钮那一格单独 span 满整行末尾，不跟着被压扁。
+ */
 .admin-filter-grid-member {
-  grid-template-columns: 150px repeat(3, minmax(140px, 1fr)) 130px auto auto;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
 }
-
-@media (max-width: 1280px) {
-  .admin-filter-grid-member { grid-template-columns: repeat(3, minmax(140px, 1fr)); }
+.admin-filter-grid-member > :last-child {
+  grid-column: -2 / -1;
+  justify-self: end;
 }
 
 @media (max-width: 900px) {
