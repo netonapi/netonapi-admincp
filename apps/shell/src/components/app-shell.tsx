@@ -11,6 +11,7 @@ import {
   useWorkspaceStore,
   type WorkspaceInstance,
   type WorkspacePage,
+  type WorkspaceUiAdapter,
 } from "@neton/application-front-workspace";
 import type { LucideIcon } from "lucide-react";
 import {
@@ -445,6 +446,7 @@ export function AppShell({
   permissions,
   menus,
   pages,
+  ui,
 }: {
   items: NavItem[];
   user: FrontUser;
@@ -453,6 +455,8 @@ export function AppShell({
   menus: MenuNode[];
   /** 已安装页面表；实例由工作区宿主渲染，shell 不再有单一 children 插槽。 */
   pages: WorkspacePage[];
+  /** 本发行版使用的 UI 套件适配（弹层宿主 + 导航）。 */
+  ui: WorkspaceUiAdapter;
 }) {
   const pathname = useActivePath();
   const store = useWorkspaceStore();
@@ -725,7 +729,7 @@ export function AppShell({
           现在滚动容器下沉到每个实例内部（见 WorkspaceHost），所以这里不再 overflow-auto。
         */}
         <main className="front-shell-main relative z-0 min-h-0 flex-1 overflow-hidden">
-          <WorkspaceHost pages={pages} />
+          <WorkspaceHost pages={pages} ui={ui} />
         </main>
       </div>
 

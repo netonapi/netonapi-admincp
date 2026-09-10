@@ -13,7 +13,7 @@ export {
   instanceTitle,
   type WorkspaceNavigation,
 } from "./context";
-export { buildWorkspacePages, type PageLoaderRegistry } from "./pages";
-export { WorkspaceHost, useCloseGuard } from "./host";
+export { buildWorkspacePages, type PageLoaderRegistry, type WorkspaceModuleManifest } from "./pages";
+export { WorkspaceHost, useCloseGuard, type WorkspaceUiAdapter } from "./host";
 export { WorkspaceLink, useWorkspaceLinkDelegation, type WorkspaceLinkProps } from "./link";
 export { createBrowserHistoryHost } from "./host-history";

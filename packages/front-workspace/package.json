@@ -9,13 +9,9 @@
     "./host-history": "./src/host-history.ts"
   },
   "peerDependencies": {
-    "@neton/application-front-contract": "^1.0.0",
-    "@neton/application-front-kit": "^1.0.0",
     "react": "^19.2.0"
   },
   "devDependencies": {
-    "@neton/application-front-contract": "workspace:*",
-    "@neton/application-front-kit": "workspace:*",
     "@types/react": "^19.0.0",
     "react": "^19.2.0",
     "typescript": "^5.7.0"

@@ -7,12 +7,20 @@ import {
   buildWorkspacePages,
   createBrowserHistoryHost,
   type WorkspacePage,
+  type WorkspaceUiAdapter,
 } from "@neton/application-front-workspace";
+import { KitNavigationProvider, PortalHostProvider } from "@neton/application-front-kit";
 import { buildRouteMap } from "@neton/application-front-runtime/menu";
 import type { PermissionInfo } from "@neton/application-front-runtime/types";
 import { installedModules, pageRegistry } from "@/generated/modules.generated";
 import { AppShell } from "@/components/app-shell";
 import type { NavItem } from "@neton/application-front-runtime/menu";
+
+/** 本发行版用 front-kit：把它的弹层宿主与导航注入工作区（工作区自身不认识任何 UI 包）。 */
+const UI: WorkspaceUiAdapter = {
+  PortalHostProvider,
+  NavigationProvider: KitNavigationProvider,
+};
 
 /** 工作台不是任何模块的页面，作为内置页注入页面表，好让它也是一个正常实例。 */
 const HOME_PAGE: WorkspacePage = {
@@ -72,6 +80,7 @@ export function WorkspaceRoot({ info, nav }: { info: PermissionInfo; nav: NavIte
         permissions={info.permissions}
         menus={info.menus}
         pages={pages}
+        ui={UI}
       />
     </WorkspaceStoreProvider>
   );

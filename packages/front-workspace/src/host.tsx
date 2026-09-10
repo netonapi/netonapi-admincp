@@ -1,9 +1,33 @@
 "use client";
 
 import * as React from "react";
-import { KitNavigationProvider, PortalHostProvider } from "@neton/application-front-kit";
 import { WorkspaceInstanceProvider, instanceTitle, useWorkspace, useWorkspaceStore } from "./context";
 import type { WorkspaceInstance, WorkspacePage } from "./types";
+
+/**
+ * UI 套件适配。
+ *
+ * 工作区**不依赖任何具体的 UI 包** —— admin 线用 front-kit，C 端线用 client-kit，
+ * 两条线各有一份 Portal / 导航 context。运行时若直接 import 其中一个，另一条线
+ * 的弹层就挂不进本实例容器（拿到的是另一个 context 的默认值），表现为抽屉跑到
+ * body 上、隐藏页签的弹层和当前页签叠在一起。
+ *
+ * 因此由宿主注入：宿主知道自己用哪套 kit。
+ */
+export interface WorkspaceUiAdapter {
+  /** 把「弹层容器解析函数」提供给 UI 套件。 */
+  PortalHostProvider: React.ComponentType<{ container: () => Element | null; children: React.ReactNode }>;
+  /** 把「打开站内地址」提供给 UI 套件（列表行的详情按钮等）。 */
+  NavigationProvider: React.ComponentType<{ navigation: { open(href: string): void }; children: React.ReactNode }>;
+}
+
+/*
+ * 🔴 [WorkspaceHost] 的 `ui` 是**必填**，不给默认值。
+ *
+ * 给过默认（透传）实现：宿主忘了注入照样编译通过、页面照常渲染，只是弹层悄悄
+ * 挂回 document.body —— 每实例归属失效，隐藏页签的抽屉和当前页签叠在一起，
+ * 而且只有专门去断言 portal 容器才看得出来。必填能让这类遗漏在编译期就炸。
+ */
 
 class InstanceErrorBoundary extends React.Component<
   { title: string; children: React.ReactNode },
@@ -49,10 +73,11 @@ function usePageComponent(page: WorkspacePage | undefined): React.ComponentType 
   return cached;
 }
 
-function InstanceFrame({ instance, page, visible }: { instance: WorkspaceInstance; page: WorkspacePage | undefined; visible: boolean }) {
+function InstanceFrame({ instance, page, visible, ui }: { instance: WorkspaceInstance; page: WorkspacePage | undefined; visible: boolean; ui: WorkspaceUiAdapter }) {
   const Component = usePageComponent(page);
   const portalRef = React.useRef<HTMLDivElement>(null);
   const getPortal = React.useCallback(() => portalRef.current, []);
+  const { PortalHostProvider } = ui;
 
   return (
     <WorkspaceInstanceProvider instance={instance}>
@@ -91,27 +116,28 @@ function InstanceFrame({ instance, page, visible }: { instance: WorkspaceInstanc
  *
  * 这里没有任何自动回收：已打开的实例只有 close() 能销毁。
  */
-export function WorkspaceHost({ pages }: { pages: WorkspacePage[] }) {
+export function WorkspaceHost({ pages, ui }: { pages: WorkspacePage[]; ui: WorkspaceUiAdapter }) {
   const { instances, activeId } = useWorkspace();
   const store = useWorkspaceStore();
+  const { NavigationProvider } = ui;
   const pageMap = React.useMemo(() => new Map(pages.map((p) => [p.key, p])), [pages]);
   // front-kit 里的 RowActions / KitLink 通过这个适配器走工作区导航，
   // 不再整页跳转（它们是列表页「详情」按钮的实际出口）。
   const kitNavigation = React.useMemo(() => ({ open: (href: string) => { store.open(href); } }), [store]);
 
   return (
-    <KitNavigationProvider navigation={kitNavigation}>
+    <NavigationProvider navigation={kitNavigation}>
       {instances.map((instance) => {
         const visible = instance.instanceId === activeId;
         return (
           <React.Activity key={instance.instanceId} mode={visible ? "visible" : "hidden"}>
             <div className={visible ? "h-full" : "hidden"}>
-              <InstanceFrame instance={instance} page={pageMap.get(instance.pageKey)} visible={visible} />
+              <InstanceFrame instance={instance} page={pageMap.get(instance.pageKey)} visible={visible} ui={ui} />
             </div>
           </React.Activity>
         );
       })}
-    </KitNavigationProvider>
+    </NavigationProvider>
   );
 }
 

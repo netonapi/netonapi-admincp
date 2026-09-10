@@ -1,5 +1,22 @@
-import type { FrontModuleManifest } from "@neton/application-front-contract";
 import type { WorkspacePage } from "./types";
+
+/**
+ * manifest 的最小形状。
+ *
+ * 刻意不 import 任何一条产品线的 contract 包：admin 线是 front-contract，C 端线是
+ * client-contract，两者结构一致但是不同的包。工作区只需要这几个字段，用结构化类型
+ * 两边都能传进来，运行时因此对产品线保持中立。
+ */
+export interface WorkspaceModuleManifest {
+  pages: Array<{
+    key: string;
+    path: string;
+    entry: string;
+    standalone?: boolean;
+    identity?: string[];
+    title?: string;
+  }>;
+}
 
 export type PageLoaderRegistry = Record<string, () => Promise<{ default: React.ComponentType }>>;
 
@@ -11,7 +28,7 @@ export type PageLoaderRegistry = Record<string, () => Promise<{ default: React.C
  * manifest 的 title 留给菜单里没有的 standalone 详情页。
  */
 export function buildWorkspacePages(
-  modules: FrontModuleManifest[],
+  modules: WorkspaceModuleManifest[],
   registry: PageLoaderRegistry,
   menuTitleByPath: Record<string, string> = {},
 ): WorkspacePage[] {

@@ -166,12 +166,6 @@ importers:
 
   packages/front-workspace:
     devDependencies:
-      '@neton/application-front-contract':
-        specifier: workspace:*
-        version: link:../front-contract
-      '@neton/application-front-kit':
-        specifier: workspace:*
-        version: link:../front-kit
       '@types/react':
         specifier: ^19.0.0
         version: 19.2.17
