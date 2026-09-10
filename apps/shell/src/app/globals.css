@@ -64,8 +64,13 @@
   gap: 0.75rem;
 }
 
+/* 用户编号 / 用户名 / 昵称 / 手机号 / 状态 / 包含机器人 / 按钮 */
 .admin-filter-grid-member {
-  grid-template-columns: minmax(180px, 1fr) minmax(180px, 1fr) 150px auto auto;
+  grid-template-columns: 150px repeat(3, minmax(140px, 1fr)) 130px auto auto;
+}
+
+@media (max-width: 1280px) {
+  .admin-filter-grid-member { grid-template-columns: repeat(3, minmax(140px, 1fr)); }
 }
 
 @media (max-width: 900px) {

@@ -1,9 +1,0 @@
-{
-  "name": "@neton/application-front-contract",
-  "version": "1.0.0",
-  "private": true,
-  "type": "module",
-  "sideEffects": false,
-  "exports": { ".": "./src/index.ts" },
-  "devDependencies": { "typescript": "^5.7.0" }
-}

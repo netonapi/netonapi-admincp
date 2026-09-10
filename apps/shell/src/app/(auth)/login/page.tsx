@@ -3,6 +3,7 @@
 import * as React from "react";
 import { ArrowRight, Check, Eye, EyeOff, Fingerprint, KeyRound, Moon, ShieldCheck, Sun } from "lucide-react";
 import { Alert, Button, Input, Label } from "@neton/application-front-kit";
+import { login } from "@neton/application-front-runtime/client";
 import { BrandMark } from "@/components/brand-mark";
 
 export default function LoginPage() {
@@ -30,12 +31,8 @@ export default function LoginPage() {
     setPending(true);
     setError(null);
     try {
-      const res = await fetch("/api/auth/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username, password }),
-      });
-      const body = await res.json();
+      // 直连后端：成功后会话 Cookie 由后端 Set-Cookie 下发，前端不接触 token。
+      const body = await login(username, password);
       if (body.code === 0) {
         window.location.href = "/";
         return;
