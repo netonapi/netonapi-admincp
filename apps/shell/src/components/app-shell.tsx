@@ -57,6 +57,7 @@ import {
 import type { NavItem } from "@neton/application-front-runtime/menu";
 import type { PermissionInfo } from "@neton/application-front-runtime/types";
 import { FrontClientProvider, useQueryClient } from "@neton/application-front-runtime/client-context";
+import { logout as logoutSession } from "@neton/application-front-runtime/client";
 import { cn } from "@neton/application-front-kit";
 import { BrandMark } from "./brand-mark";
 
@@ -501,8 +502,8 @@ export function AppShell({
   }
 
   async function logout() {
-    await fetch("/api/auth/logout", { method: "POST" });
-    window.location.href = "/login";
+    // 后端清 HttpOnly Cookie（前端清不掉，这是它的意义所在），随后回登录页。
+    await logoutSession();
   }
 
   async function toggleFullscreen() {

@@ -6,7 +6,6 @@
   "sideEffects": false,
   "exports": {
     ".": "./src/index.ts",
-    "./server": "./src/server.ts",
     "./client": "./src/client.ts",
     "./client-context": "./src/client-context.tsx",
     "./menu": "./src/menu.ts",
