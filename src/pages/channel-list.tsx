@@ -1,6 +1,26 @@
 "use client";
 import { ResourcePage } from "@neton/application-front-resource";
-export default function Page() { return <ResourcePage config={{ resourceKey: "gateway-channel", eyebrow: "GATEWAY", title: "上游渠道", description: "LLM 上游渠道：类型、分组、模型清单、端点能力、权重与成本折扣。", endpoint: "/gateway/channel", listPath: "list", permissions: { page: "gateway:channel:list", create: "gateway:channel:create", update: "gateway:channel:update", delete: "gateway:channel:delete" }, fields: [
+import { apiWrite } from "@neton/application-front-runtime/client";
+
+interface ProbeResult { ok: boolean; status?: number | null; latencyMs: number; model: string; upstreamModel: string; upstreamPath: string; error?: string | null }
+
+/**
+ * 连通性探测：用渠道自己的协议/代理/Key 打一条最小请求（后端不计费、不记日志、不动 Key 状态）。
+ * 结果用 alert 直接摆出来 —— 这是运营配完渠道后的一次性验证动作，不值得为它建一个抽屉。
+ */
+async function probe(id: number, name: string) {
+  try {
+    const r = await apiWrite<ProbeResult>(`/admin/gateway/channel/probe/${id}`, "POST", {});
+    window.alert(r.ok
+      ? `渠道「${name}」连通：HTTP ${r.status}，${r.latencyMs} ms\n模型 ${r.model} → 上游 ${r.upstreamModel}\n路径 ${r.upstreamPath}`
+      : `渠道「${name}」探测失败：HTTP ${r.status ?? "无响应"}，${r.latencyMs} ms\n模型 ${r.model} → 上游 ${r.upstreamModel}\n路径 ${r.upstreamPath}\n\n上游原话：${r.error ?? "—"}`);
+  } catch (cause) {
+    window.alert(`探测请求失败：${(cause as Error).message}`);
+  }
+}
+
+export default function Page() { return <ResourcePage config={{ resourceKey: "gateway-channel",
+  rowActions: (row) => ({ more: [{ label: "测试连通", kind: "retry", onClick: () => { void probe(row.id, String(row.name ?? row.id)); } }] }), eyebrow: "GATEWAY", title: "上游渠道", description: "LLM 上游渠道：类型、分组、模型清单、端点能力、权重与成本折扣。", endpoint: "/gateway/channel", listPath: "list", permissions: { page: "gateway:channel:list", create: "gateway:channel:create", update: "gateway:channel:update", delete: "gateway:channel:delete" }, fields: [
   { key: "name", label: "名称", required: true },
   { key: "type", label: "类型", type: "select", defaultValue: "openai_compatible", options: [
     { label: "OpenAI 兼容", value: "openai_compatible" }, { label: "Anthropic", value: "anthropic" },
