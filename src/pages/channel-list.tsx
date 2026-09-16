@@ -15,6 +15,7 @@ export default function Page() { return <ResourcePage config={{ resourceKey: "ga
   { key: "weight", label: "权重", type: "number", defaultValue: 1 },
   { key: "costDiscount", label: "成本折扣", defaultValue: "1.0" },
   { key: "proxyUrl", label: "代理", table: false },
+  { key: "apiVersion", label: "API 版本（仅 Azure）", table: false, placeholder: "2024-10-21，留空用默认；部署名取模型映射的目标名" },
   { key: "status", label: "状态", type: "select", defaultValue: 1, format: "status", options: [
     { label: "启用", value: 1 }, { label: "禁用", value: 0 }, { label: "自动挂起", value: 2 } ] },
   { key: "remark", label: "备注", type: "textarea", table: false },
