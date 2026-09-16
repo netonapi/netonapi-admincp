@@ -4,6 +4,7 @@ export default defineFrontModule({
   id: "gateway",
   contractVersion: "1.0.0",
   pages: [
+    { key: "gateway/overview/index", path: "/gateway/overview", entry: "overview", rendering: "client" },
     { key: "gateway/channel/index", path: "/gateway/channel", entry: "channel-list", rendering: "client" },
     { key: "gateway/token/index", path: "/gateway/token", entry: "token-list", rendering: "client" },
     { key: "gateway/price/index", path: "/gateway/price", entry: "price-list", rendering: "client" },
