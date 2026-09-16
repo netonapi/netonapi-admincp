@@ -5,7 +5,7 @@ import { apiWrite } from "@neton/application-front-runtime/client";
 import { useQueryClient } from "@neton/application-front-runtime/client-context";
 import { Alert, Button, Drawer, Field, Textarea } from "@neton/application-front-kit";
 
-interface ImportItem { model: string; inputPrice: string; outputPrice: string; cacheReadPrice?: string; cacheWritePrice?: string }
+interface ImportItem { model: string; inputPrice: string; outputPrice: string; cacheReadPrice?: string; cacheWritePrice?: string; defaultMaxOutputTokens?: number }
 interface ImportResult { created: number; updated: number; skipped: number; errors: string[] }
 
 /**
@@ -27,13 +27,14 @@ export function parsePriceSheet(text: string): ImportItem[] {
       outputPrice: pick(o, "outputPrice", "output", "completion") ?? "0",
       cacheReadPrice: pick(o, "cacheReadPrice", "cacheRead", "cache_read", "cached_input"),
       cacheWritePrice: pick(o, "cacheWritePrice", "cacheWrite", "cache_write"),
+      defaultMaxOutputTokens: (() => { const v = pick(o, "defaultMaxOutputTokens", "maxOutput", "max_output_tokens"); return v ? Number(v) : undefined; })(),
     });
     if (Array.isArray(raw)) return raw.map((o) => { const r = o as Record<string, unknown>; return fromObj(String(r.model ?? ""), r); });
     return Object.entries(raw as Record<string, unknown>).map(([model, v]) => fromObj(model, (v ?? {}) as Record<string, unknown>));
   }
   return t.split(/\r?\n/).map((l) => l.trim()).filter((l) => l && !l.startsWith("#")).map((l) => {
-    const [model, inputPrice = "0", outputPrice = "0", cacheReadPrice, cacheWritePrice] = l.split(/[,\t ]+/).filter(Boolean);
-    return { model, inputPrice, outputPrice, cacheReadPrice, cacheWritePrice };
+    const [model, inputPrice = "0", outputPrice = "0", cacheReadPrice, cacheWritePrice, maxOut] = l.split(/[,\t ]+/).filter(Boolean);
+    return { model, inputPrice, outputPrice, cacheReadPrice, cacheWritePrice, defaultMaxOutputTokens: maxOut ? Number(maxOut) : undefined };
   });
 }
 
@@ -70,7 +71,7 @@ export default function Page() {
       { key: "cacheWritePrice", label: "缓存写", defaultValue: "0" },
       { key: "perRequestPrice", label: "按次(μUSD)", type: "number", table: false },
       { key: "defaultMaxOutputTokens", label: "默认输出上限", type: "number", table: false },
-      { key: "source", label: "价源" },
+      { key: "source", label: "价源", editable: false },
     ] }} />
     <Drawer open={open} onClose={() => setOpen(false)} title="批量导入定价" description="按 model 去重后逐条写入；有一条不合法则整批不写。价格单位 USD / 1M tokens。"
       footer={<><Button variant="ghost" onClick={() => setOpen(false)}>关闭</Button><Button onClick={() => void submit()} disabled={busy || text.trim() === ""}>{busy ? "导入中…" : "导入"}</Button></>}>
@@ -81,7 +82,7 @@ export default function Page() {
           : <Alert tone="info">导入完成：新增 {result.created}，更新 {result.updated}，跳过 {result.skipped}。</Alert>)}
         <Field label="价目表">
           <Textarea rows={14} value={text} onChange={(e) => setText(e.target.value)}
-            placeholder={"每行一条：model 输入价 输出价 [缓存读 缓存写]\n例如：\ngpt-4o 2.5 10 1.25\nclaude-sonnet-4 3 15 0.3 3.75\n\n也可以直接粘贴 JSON：[{\"model\":\"gpt-4o\",\"inputPrice\":\"2.5\",\"outputPrice\":\"10\"}]\n或 {\"gpt-4o\":{\"input\":2.5,\"output\":10}}"} />
+            placeholder={"每行一条：model 输入价 输出价 [缓存读 缓存写 默认输出上限]\n例如：\ngpt-4o 2.5 10 1.25 0 16384\nclaude-sonnet-4 3 15 0.3 3.75 8192\n\n也可以直接粘贴 JSON：[{\"model\":\"gpt-4o\",\"inputPrice\":\"2.5\",\"outputPrice\":\"10\"}]\n或 {\"gpt-4o\":{\"input\":2.5,\"output\":10}}"} />
         </Field>
         <label style={{ display: "flex", gap: 8, alignItems: "center", fontSize: 13 }}>
           <input type="checkbox" checked={overwrite} onChange={(e) => setOverwrite(e.target.checked)} />

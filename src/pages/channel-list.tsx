@@ -38,7 +38,12 @@ async function pullModels(row: ResourceRecord, done: () => Promise<void>) {
     if (fresh.length === 0) { window.alert(`渠道「${name}」上游共 ${r.models.length} 个模型，清单里都已经有了。`); return; }
     const preview = fresh.slice(0, 40).join("\n") + (fresh.length > 40 ? `\n… 共 ${fresh.length} 个` : "");
     if (!window.confirm(`渠道「${name}」上游有 ${fresh.length} 个清单里没有的模型：\n\n${preview}\n\n全部并入该渠道的模型清单？（已有的保持不变，不需要的之后可在编辑里删掉）`)) return;
-    await apiWrite("/admin/gateway/channel/update", "PUT", { ...row, models: [...current, ...fresh].join(",") });
+    // 只发 UpdateChannelRequest 认识的字段：后端 @Body 对未知键直接 400，整行连 status/createdAt 一起发会被拒
+    const keep = ["id", "name", "type", "baseUrl", "groups", "capabilities", "modelMapping", "paramOverride", "priority", "weight", "proxyUrl", "apiVersion", "costDiscount", "remark"] as const;
+    const body: Record<string, unknown> = {};
+    for (const k of keep) if (row[k] !== undefined) body[k] = row[k];
+    body.models = [...current, ...fresh].join(",");
+    await apiWrite("/admin/gateway/channel/update", "PUT", body);
     await done();
   } catch (cause) {
     window.alert(`拉取模型失败：${(cause as Error).message}`);
