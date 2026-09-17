@@ -73,6 +73,9 @@ export default function Page() {
   { key: "costDiscount", label: "成本折扣", defaultValue: "1.0" },
   { key: "proxyUrl", label: "代理", table: false },
   { key: "apiVersion", label: "API 版本（仅 Azure）", table: false, placeholder: "2024-10-21，留空用默认；部署名取模型映射的目标名" },
+  { key: "lastProbeMs", label: "测速(ms)", type: "number", editable: false },
+  { key: "lastProbeOk", label: "测速结果", type: "select", format: "status", editable: false, options: [ { label: "通", value: 1 }, { label: "不通", value: 0 } ] },
+  { key: "lastProbeError", label: "最近失败原因", type: "textarea", editable: false, table: false },
   { key: "status", label: "状态", type: "select", defaultValue: 1, format: "status", options: [
     { label: "启用", value: 1 }, { label: "禁用", value: 0 }, { label: "自动挂起", value: 2 } ] },
   { key: "remark", label: "备注", type: "textarea", table: false },

@@ -8,7 +8,7 @@ interface PeriodStat { requests: number; errors: number; charged: number; cost: 
 interface DailyStat { date: string; requests: number; errors: number; charged: number; cost: number }
 interface ModelStat { model: string; requests: number; charged: number; cost: number }
 interface UserStat { userId: number; requests: number; charged: number }
-interface ChannelStat { channelId: number; name: string; status: number; requests: number; errors: number; cost: number }
+interface ChannelStat { channelId: number; name: string; status: number; requests: number; errors: number; cost: number; lastProbeAt?: number | null; lastProbeMs?: number | null; lastProbeOk?: number | null; lastProbeError?: string | null }
 interface Overview {
   today: PeriodStat; period: PeriodStat; days: number; daily: DailyStat[];
   topModels: ModelStat[]; topUsers: UserStat[]; channels: ChannelStat[];
@@ -20,6 +20,27 @@ const usd = (micro: number) => `$${(micro / 1_000_000).toFixed(2)}`;
 const pct = (part: number, total: number) => (total === 0 ? "—" : `${((part / total) * 100).toFixed(1)}%`);
 const margin = (charged: number, cost: number) => (charged === 0 ? "—" : `${(((charged - cost) / charged) * 100).toFixed(0)}%`);
 const fmt = (n: number) => n.toLocaleString("zh-CN");
+
+/** 纯 SVG 柱状图：概览只要看趋势，不值得为它引一个图表库。 */
+function BarChart({ points, valueOf, format }: { points: DailyStat[]; valueOf: (d: DailyStat) => number; format: (n: number) => string }) {
+  if (points.length === 0) return <p style={{ fontSize: 12, color: "var(--muted-foreground)" }}>暂无数据</p>;
+  const w = 720, h = 140, pad = 24, bw = Math.max(4, (w - pad * 2) / points.length - 4);
+  const max = Math.max(1, ...points.map(valueOf));
+  return (
+    <svg viewBox={`0 0 ${w} ${h + 28}`} width="100%" height={h + 28} role="img" aria-label="按日趋势">
+      {points.map((p, i) => {
+        const v = valueOf(p); const bh = Math.round((v / max) * h);
+        const x = pad + i * ((w - pad * 2) / points.length);
+        return (
+          <g key={p.date}>
+            <rect x={x} y={h - bh} width={bw} height={bh} rx={2} fill="currentColor" opacity={0.7}><title>{`${p.date}: ${format(v)}`}</title></rect>
+            {points.length <= 31 || i % 7 === 0 ? <text x={x + bw / 2} y={h + 16} fontSize={10} textAnchor="middle" fill="currentColor" opacity={0.6}>{p.date.slice(5)}</text> : null}
+          </g>
+        );
+      })}
+    </svg>
+  );
+}
 
 function Stat({ label, value, hint }: { label: string; value: React.ReactNode; hint?: React.ReactNode }) {
   return (
@@ -66,6 +87,7 @@ export default function Page() {
     { key: "requests", header: "请求", cell: (r) => fmt(r.requests) },
     { key: "errors", header: "错误率", cell: (r) => pct(r.errors, r.requests) },
     { key: "cost", header: "成本", cell: (r) => usd(r.cost) },
+    { key: "probe", header: "测速", cell: (r) => r.lastProbeOk == null ? "未测" : r.lastProbeOk === 1 ? `${r.lastProbeMs ?? "?"} ms` : <span title={r.lastProbeError ?? ""} style={{ color: "var(--destructive, #c00)" }}>不通</span> },
   ];
 
   const grid = (cols: number): React.CSSProperties => ({ display: "grid", gridTemplateColumns: `repeat(${cols}, minmax(0,1fr))`, gap: 12, margin: "12px 0" });
@@ -90,6 +112,16 @@ export default function Page() {
         <Stat label={`${days === 1 ? "今日" : `近 ${days} 天`}收入`} value={d ? usd(d.period.charged) : "—"} hint={d ? `成本 ${usd(d.period.cost)} · 毛利率 ${margin(d.period.charged, d.period.cost)} · tokens ${fmt(d.period.promptTokens + d.period.completionTokens)}` : null} />
       </div>
 
+      <div style={grid(2)}>
+        <Card>
+          <CardHeader><CardTitle>每日收入</CardTitle></CardHeader>
+          <CardContent><BarChart points={d?.daily ?? []} valueOf={(x) => x.charged} format={usd} /></CardContent>
+        </Card>
+        <Card>
+          <CardHeader><CardTitle>每日请求</CardTitle></CardHeader>
+          <CardContent><BarChart points={d?.daily ?? []} valueOf={(x) => x.requests} format={fmt} /></CardContent>
+        </Card>
+      </div>
       <Card style={{ margin: "12px 0" }}>
         <CardHeader><CardTitle>按日</CardTitle></CardHeader>
         <CardContent><DataTable columns={dailyCols} rows={d?.daily ?? []} rowKey={(r) => r.date} loading={query.isPending} /></CardContent>

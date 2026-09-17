@@ -47,6 +47,15 @@ export default function Page() {
   const [error, setError] = React.useState<string | null>(null);
   const [result, setResult] = React.useState<ImportResult | null>(null);
 
+  /** 立即从 NEWGATE_PRICE_SYNC_URL 拉一次（定时任务每天也会拉）。没配 URL 后端会说清楚。 */
+  async function syncNow() {
+    try {
+      const r = await apiWrite<ImportResult>("/admin/gateway/price/sync", "POST", {});
+      window.alert(r.errors.length ? `同步失败：\n${r.errors.join("\n")}` : `同步完成：新增 ${r.created}，更新 ${r.updated}，跳过 ${r.skipped}`);
+      await queryClient.invalidateQueries({ queryKey: ["gateway-price"] });
+    } catch (cause) { window.alert(`同步失败：${(cause as Error).message}`); }
+  }
+
   async function submit() {
     setError(null); setResult(null);
     let items: ImportItem[];
@@ -62,7 +71,10 @@ export default function Page() {
 
   return <>
     <ResourcePage config={{ resourceKey: "gateway-price", eyebrow: "GATEWAY", title: "模型定价", description: "官方价（USD/1M tokens）与售价覆盖；变更即时生效。", endpoint: "/gateway/price", listPath: "list", permissions: { page: "gateway:price:list", create: "gateway:price:create", update: "gateway:price:update", delete: "gateway:price:delete" },
-      headerActions: <Button variant="outline" onClick={() => { setOpen(true); setResult(null); setError(null); }}>批量导入</Button>,
+      headerActions: <div style={{ display: "flex", gap: 8 }}>
+        <Button variant="outline" onClick={() => { setOpen(true); setResult(null); setError(null); }}>批量导入</Button>
+        <Button variant="outline" onClick={() => void syncNow()}>同步价源</Button>
+      </div>,
       fields: [
       { key: "model", label: "模型", required: true },
       { key: "inputPrice", label: "输入价", defaultValue: "0", required: true },
