@@ -57,7 +57,7 @@ export default function Page() {
   rowActions: (row) => ({ more: [
     { label: "测试连通", kind: "retry", onClick: () => { void probe(row.id, String(row.name ?? row.id)); } },
     { label: "拉取模型", kind: "download", onClick: () => { void pullModels(row, refresh); } },
-  ] }), eyebrow: "GATEWAY", title: "上游渠道", description: "LLM 上游渠道：类型、分组、模型清单、端点能力、权重与成本折扣。", endpoint: "/gateway/channel", listPath: "list", permissions: { page: "gateway:channel:list", create: "gateway:channel:create", update: "gateway:channel:update", delete: "gateway:channel:delete" }, fields: [
+  ] }), eyebrow: "GATEWAY", title: "上游渠道", description: "LLM 上游渠道：类型、分组、模型清单、端点能力、权重与成本折扣。", endpoint: "/gateway/channel", listPath: "list", permissions: { page: "gateway:channel:query", create: "gateway:channel:create", update: "gateway:channel:update", delete: "gateway:channel:delete" }, fields: [
   { key: "name", label: "名称", required: true },
   { key: "type", label: "类型", type: "select", defaultValue: "openai_compatible", options: [
     { label: "OpenAI 兼容", value: "openai_compatible" }, { label: "Anthropic", value: "anthropic" },

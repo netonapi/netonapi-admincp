@@ -221,7 +221,7 @@ function QuotaOps() {
 
 export default function Page() {
   return <div className="space-y-4">
-    <ResourcePage config={{ resourceKey: "gateway-log", eyebrow: "GATEWAY", title: "用量日志", description: "逐请求用量与收入/成本（μUSD）。", endpoint: "/gateway/log", listPath: "page", permissions: { page: "gateway:log:list" }, fields: [
+    <ResourcePage config={{ resourceKey: "gateway-log", eyebrow: "GATEWAY", title: "用量日志", description: "逐请求用量与收入/成本（μUSD）。", endpoint: "/gateway/log", listPath: "page", permissions: { page: "gateway:log:query" }, fields: [
       { key: "userId", label: "用户", type: "number" },
       { key: "requestModel", label: "请求模型" },
       { key: "upstreamModel", label: "上游模型" },

@@ -31,9 +31,9 @@ const EMPTY: FormState = { editing: false, userId: "", groupCode: "", remark: ""
  *   把整页打挂。后端对悬空 code 有 400 守卫，所以文本输入也不会写坏数据。
  */
 export default function Page() {
-  const canCreate = usePermission("gateway:group_override:create");
-  const canUpdate = usePermission("gateway:group_override:update");
-  const canDelete = usePermission("gateway:group_override:delete");
+  const canCreate = usePermission("gateway:group-override:create");
+  const canUpdate = usePermission("gateway:group-override:update");
+  const canDelete = usePermission("gateway:group-override:delete");
   const [rows, setRows] = React.useState<OverrideVO[]>([]);
   const [groups, setGroups] = React.useState<GroupVO[]>([]);
   const [loading, setLoading] = React.useState(false);

@@ -70,7 +70,7 @@ export default function Page() {
   }
 
   return <>
-    <ResourcePage config={{ resourceKey: "gateway-price", eyebrow: "GATEWAY", title: "模型定价", description: "官方价（USD/1M tokens）与售价覆盖；变更即时生效。", endpoint: "/gateway/price", listPath: "list", permissions: { page: "gateway:price:list", create: "gateway:price:create", update: "gateway:price:update", delete: "gateway:price:delete" },
+    <ResourcePage config={{ resourceKey: "gateway-price", eyebrow: "GATEWAY", title: "模型定价", description: "官方价（USD/1M tokens）与售价覆盖；变更即时生效。", endpoint: "/gateway/price", listPath: "list", permissions: { page: "gateway:price:query", create: "gateway:price:create", update: "gateway:price:update", delete: "gateway:price:delete" },
       headerActions: <div style={{ display: "flex", gap: 8 }}>
         <Button variant="outline" onClick={() => { setOpen(true); setResult(null); setError(null); }}>批量导入</Button>
         <Button variant="outline" onClick={() => void syncNow()}>同步价源</Button>
