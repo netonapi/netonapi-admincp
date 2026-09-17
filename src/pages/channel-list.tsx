@@ -66,7 +66,7 @@ export default function Page() {
   { key: "baseUrl", label: "Base URL", required: true },
   { key: "groups", label: "分组", defaultValue: "default" },
   { key: "models", label: "模型清单(逗号分隔)", type: "textarea" },
-  { key: "capabilities", label: "端点能力(逗号分隔)", defaultValue: "chat", placeholder: "chat,embeddings,images" },
+  { key: "capabilities", label: "端点能力(逗号分隔)", defaultValue: "chat", placeholder: "chat,embeddings,images,rerank,audio" },
   { key: "modelMapping", label: "模型映射 JSON", type: "textarea", table: false },
   { key: "paramOverride", label: "参数覆盖 JSON", type: "textarea", table: false },
   { key: "priority", label: "优先级", type: "number", defaultValue: 0 },
