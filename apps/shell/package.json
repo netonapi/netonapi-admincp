@@ -17,7 +17,6 @@
     "@neton/application-front-kit": "file:../../../../Neton/neton-application-front/packages/front-kit",
     "@neton/application-front-member": "file:../../../../Neton/neton-application-front-member",
     "@neton/application-front-payment": "file:../../../../Neton/neton-application-front-payment",
-    "@neton/application-front-platform": "file:../../../../Neton/neton-application-front-platform",
     "@neton/application-front-resource": "file:../../../../Neton/neton-application-front/packages/front-resource",
     "@neton/application-front-runtime": "file:../../../../Neton/neton-application-front/packages/front-runtime",
     "@neton/application-front-system": "file:../../../../Neton/neton-application-front-system",

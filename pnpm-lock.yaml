@@ -38,9 +38,6 @@ importers:
       '@neton/application-front-payment':
         specifier: file:../../../../Neton/neton-application-front-payment
         version: file:../../Neton/neton-application-front-payment(294d2809e3f09b4c006224091b4ed764)
-      '@neton/application-front-platform':
-        specifier: file:../../../../Neton/neton-application-front-platform
-        version: file:../../Neton/neton-application-front-platform(@neton/application-front-contract@file:../../Neton/neton-application-front/packages/front-contract)(@neton/application-front-kit@file:../../Neton/neton-application-front/packages/front-kit(@types/react-dom@19.2.7(@types/react@19.2.17))(@types/react@19.2.17)(react-dom@19.2.7(react@19.2.7))(react@19.2.7))(@neton/application-front-resource@file:../../Neton/neton-application-front/packages/front-resource(@neton/application-front-kit@file:../../Neton/neton-application-front/packages/front-kit(@types/react-dom@19.2.7(@types/react@19.2.17))(@types/react@19.2.17)(react-dom@19.2.7(react@19.2.7))(react@19.2.7))(@neton/application-front-runtime@file:../../Neton/neton-application-front/packages/front-runtime(@tanstack/react-query@5.101.2(react@19.2.7))(react@19.2.7))(react@19.2.7))(@neton/application-front-runtime@file:../../Neton/neton-application-front/packages/front-runtime(@tanstack/react-query@5.101.2(react@19.2.7))(react@19.2.7))(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
       '@neton/application-front-resource':
         specifier: file:../../../../Neton/neton-application-front/packages/front-resource
         version: file:../../Neton/neton-application-front/packages/front-resource(@neton/application-front-kit@file:../../Neton/neton-application-front/packages/front-kit(@types/react-dom@19.2.7(@types/react@19.2.17))(@types/react@19.2.17)(react-dom@19.2.7(react@19.2.7))(react@19.2.7))(@neton/application-front-runtime@file:../../Neton/neton-application-front/packages/front-runtime(@tanstack/react-query@5.101.2(react@19.2.7))(react@19.2.7))(react@19.2.7)
@@ -500,16 +497,6 @@ packages:
       '@neton/application-front-resource': ^1.0.0
       '@neton/application-front-runtime': ^1.0.0
       '@neton/application-front-workspace': ^1.0.0
-      react: ^19.0.0
-      react-dom: ^19.0.0
-
-  '@neton/application-front-platform@file:../../Neton/neton-application-front-platform':
-    resolution: {directory: ../../Neton/neton-application-front-platform, type: directory}
-    peerDependencies:
-      '@neton/application-front-contract': ^1.0.0
-      '@neton/application-front-kit': ^1.0.0
-      '@neton/application-front-resource': ^1.0.0
-      '@neton/application-front-runtime': ^1.0.0
       react: ^19.0.0
       react-dom: ^19.0.0
 
@@ -2010,15 +1997,6 @@ snapshots:
       '@neton/application-front-resource': file:../../Neton/neton-application-front/packages/front-resource(@neton/application-front-kit@file:../../Neton/neton-application-front/packages/front-kit(@types/react-dom@19.2.7(@types/react@19.2.17))(@types/react@19.2.17)(react-dom@19.2.7(react@19.2.7))(react@19.2.7))(@neton/application-front-runtime@file:../../Neton/neton-application-front/packages/front-runtime(@tanstack/react-query@5.101.2(react@19.2.7))(react@19.2.7))(react@19.2.7)
       '@neton/application-front-runtime': file:../../Neton/neton-application-front/packages/front-runtime(@tanstack/react-query@5.101.2(react@19.2.7))(react@19.2.7)
       '@neton/application-front-workspace': file:../../Neton/neton-application-front/packages/front-workspace(react@19.2.7)
-      react: 19.2.7
-      react-dom: 19.2.7(react@19.2.7)
-
-  ? '@neton/application-front-platform@file:../../Neton/neton-application-front-platform(@neton/application-front-contract@file:../../Neton/neton-application-front/packages/front-contract)(@neton/application-front-kit@file:../../Neton/neton-application-front/packages/front-kit(@types/react-dom@19.2.7(@types/react@19.2.17))(@types/react@19.2.17)(react-dom@19.2.7(react@19.2.7))(react@19.2.7))(@neton/application-front-resource@file:../../Neton/neton-application-front/packages/front-resource(@neton/application-front-kit@file:../../Neton/neton-application-front/packages/front-kit(@types/react-dom@19.2.7(@types/react@19.2.17))(@types/react@19.2.17)(react-dom@19.2.7(react@19.2.7))(react@19.2.7))(@neton/application-front-runtime@file:../../Neton/neton-application-front/packages/front-runtime(@tanstack/react-query@5.101.2(react@19.2.7))(react@19.2.7))(react@19.2.7))(@neton/application-front-runtime@file:../../Neton/neton-application-front/packages/front-runtime(@tanstack/react-query@5.101.2(react@19.2.7))(react@19.2.7))(react-dom@19.2.7(react@19.2.7))(react@19.2.7)'
-  : dependencies:
-      '@neton/application-front-contract': file:../../Neton/neton-application-front/packages/front-contract
-      '@neton/application-front-kit': file:../../Neton/neton-application-front/packages/front-kit(@types/react-dom@19.2.7(@types/react@19.2.17))(@types/react@19.2.17)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
-      '@neton/application-front-resource': file:../../Neton/neton-application-front/packages/front-resource(@neton/application-front-kit@file:../../Neton/neton-application-front/packages/front-kit(@types/react-dom@19.2.7(@types/react@19.2.17))(@types/react@19.2.17)(react-dom@19.2.7(react@19.2.7))(react@19.2.7))(@neton/application-front-runtime@file:../../Neton/neton-application-front/packages/front-runtime(@tanstack/react-query@5.101.2(react@19.2.7))(react@19.2.7))(react@19.2.7)
-      '@neton/application-front-runtime': file:../../Neton/neton-application-front/packages/front-runtime(@tanstack/react-query@5.101.2(react@19.2.7))(react@19.2.7)
       react: 19.2.7
       react-dom: 19.2.7(react@19.2.7)
 
