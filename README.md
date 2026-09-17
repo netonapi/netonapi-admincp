@@ -4,7 +4,7 @@ NanoGate 运营侧前端（仓名 `nanogate-admin`，本地目录沿用 `newgate
 令牌、用户、结算与审计的后台。React 19 + Next.js 16 App Router，pnpm workspace，BFF 代理模式。
 
 后端是 [`nanogate-backend`](https://github.com/zoujiaqing/nanogate-backend)（默认
-`http://localhost:7080`）；部署与密钥说明见 `nanogate` 仓的
+`http://localhost:8800`（开发模式下 `next.config.ts` 把 `/admin` `/app` `/v1` 等路由组重写到它，管理台与 API 同源，不需要 Caddy））；部署与密钥说明见 `nanogate` 仓的
 [`DEPLOY.md`](https://github.com/zoujiaqing/nanogate/blob/main/DEPLOY.md)。
 
 | | |
