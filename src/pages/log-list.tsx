@@ -54,7 +54,7 @@ function AmountField({ value, onChange }: { value: string; onChange: (v: string)
 /**
  * 额度运维：按用户查余额与台账、发放、撤回。
  *
- * 为什么长在「用量日志」页里而不是单独一页：gateway:quota:get / grant / revoke 三个权限在
+ * 为什么长在「用量日志」页里而不是单独一页：gateway:quota:query / grant / revoke 三个权限在
  * 菜单种子里都是挂在 '用量日志' 这个二级菜单下的按钮级权限（V001 / V005 / V006），而侧栏与
  * 路由表都只认菜单行 —— 单独开一页就得再建一个菜单节点，那会让同一套额度运维的权限分散在
  * 两处，运营授权时漏勾一处就是「能撤回但看不见余额」。取舍的完整理由写在 V006 的脚本头注释里。
@@ -63,7 +63,7 @@ function AmountField({ value, onChange }: { value: string; onChange: (v: string)
  * 手写重造只会引入回归，而这三个权限此前在管理台里根本没有入口（运营只能 curl）。
  */
 function QuotaOps() {
-  const canRead = usePermission("gateway:quota:get");
+  const canRead = usePermission("gateway:quota:query");
   const canGrant = usePermission("gateway:quota:grant");
   const canRevoke = usePermission("gateway:quota:revoke");
 

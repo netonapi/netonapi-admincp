@@ -48,7 +48,7 @@ const EMPTY_GEN = { quotaMicro: "", count: "1", expiresAt: "", note: "" };
  */
 export default function Page() {
   const canCreate = usePermission("gateway:redemption:create");
-  const canGet = usePermission("gateway:redemption:get");
+  const canGet = usePermission("gateway:redemption:query");
   const canDisable = usePermission("gateway:redemption:disable");
 
   const [page, setPage] = React.useState(1);
