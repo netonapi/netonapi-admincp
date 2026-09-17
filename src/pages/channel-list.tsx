@@ -61,7 +61,8 @@ export default function Page() {
   { key: "name", label: "名称", required: true },
   { key: "type", label: "类型", type: "select", defaultValue: "openai_compatible", options: [
     { label: "OpenAI 兼容", value: "openai_compatible" }, { label: "Anthropic", value: "anthropic" },
-    { label: "Gemini", value: "gemini" }, { label: "Azure OpenAI", value: "azure_openai" } ] },
+    { label: "Gemini", value: "gemini" }, { label: "Azure OpenAI", value: "azure_openai" },
+    { label: "AWS Bedrock（Anthropic 模型）", value: "bedrock" }, { label: "Vertex AI（Anthropic 模型）", value: "vertex_anthropic" }, { label: "Vertex AI（Gemini）", value: "vertex_gemini" } ] },
   { key: "baseUrl", label: "Base URL", required: true },
   { key: "groups", label: "分组", defaultValue: "default" },
   { key: "models", label: "模型清单(逗号分隔)", type: "textarea" },
@@ -73,6 +74,7 @@ export default function Page() {
   { key: "costDiscount", label: "成本折扣", defaultValue: "1.0" },
   { key: "proxyUrl", label: "代理", table: false },
   { key: "apiVersion", label: "API 版本（仅 Azure）", table: false, placeholder: "2024-10-21，留空用默认；部署名取模型映射的目标名" },
+  { key: "providerConfig", label: "厂商参数 JSON（Vertex 必填）", type: "textarea", table: false, placeholder: "Vertex: {\"project\":\"my-gcp-project\",\"location\":\"us-east5\"}；Bedrock 可留空（region 从 Base URL 推）" },
   { key: "lastProbeMs", label: "测速(ms)", type: "number", editable: false },
   { key: "lastProbeOk", label: "测速结果", type: "select", format: "status", editable: false, options: [ { label: "通", value: 1 }, { label: "不通", value: 0 } ] },
   { key: "lastProbeError", label: "最近失败原因", type: "textarea", editable: false, table: false },
