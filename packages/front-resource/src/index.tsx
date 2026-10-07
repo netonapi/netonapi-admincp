@@ -46,6 +46,8 @@ export interface ResourcePageConfig {
   detailPath?: (record: ResourceRecord) => string;
   pageSize?: number;
   initialFilters?: Record<string, string>;
+  /** Always sent with list requests, without rendering another field in the local filter panel. */
+  fixedFilters?: Record<string, string>;
   rowActions?: (record: ResourceRecord) => { primary?: RowAction[]; more?: RowAction[] };
   mapSave?: (record: ResourceRecord) => Record<string, unknown>;
   /** 模块专属的轻量页头动作，例如全部标记已读。 */
@@ -87,9 +89,10 @@ export function ResourcePage({ config }: { config: ResourcePageConfig }) {
   const [error, setError] = React.useState<string | null>(null);
 
   const params = new URLSearchParams({ pageNo: String(page), pageSize: String(pageSize) });
+  Object.entries(config.fixedFilters ?? {}).forEach(([key, value]) => value !== "" && params.set(key, value));
   Object.entries(filters).forEach(([key, value]) => value !== "" && params.set(key, value));
   const query = useQuery({
-    queryKey: [config.resourceKey, page, pageSize, filters],
+    queryKey: [config.resourceKey, page, pageSize, config.fixedFilters, filters],
     queryFn: async () => {
       const data = await apiFetch<PageResponse<ResourceRecord> | ResourceRecord[]>(`/admin${config.endpoint}/${config.listPath ?? "page"}?${params}`);
       return Array.isArray(data) ? { list: data, total: data.length, page: 1, size: data.length, totalPages: 1 } : data;
