@@ -54,6 +54,7 @@ import {
   UsersRound,
   Wrench,
   X,
+  KeyRound,
 } from "lucide-react";
 import type { NavItem } from "@neton/application-front-runtime/menu";
 import type { PermissionInfo } from "@neton/application-front-runtime/types";
@@ -471,6 +472,19 @@ export function AppShell({
   const [searchOpen, setSearchOpen] = React.useState(false);
   const [profileOpen, setProfileOpen] = React.useState(false);
   const [noticeOpen, setNoticeOpen] = React.useState(false);
+  const noticeRef = React.useRef<HTMLDivElement>(null);
+  const profileRef = React.useRef<HTMLDivElement>(null);
+  // 点弹层外任意处关闭（按下时判定：等到 click 才关，拖选文字松手在外面也会误关）
+  React.useEffect(() => {
+    if (!profileOpen && !noticeOpen) return;
+    const onPointerDown = (event: PointerEvent) => {
+      const target = event.target as Node;
+      if (profileOpen && !profileRef.current?.contains(target)) setProfileOpen(false);
+      if (noticeOpen && !noticeRef.current?.contains(target)) setNoticeOpen(false);
+    };
+    document.addEventListener("pointerdown", onPointerDown);
+    return () => document.removeEventListener("pointerdown", onPointerDown);
+  }, [profileOpen, noticeOpen]);
   const [fullscreen, setFullscreen] = React.useState(false);
   const [darkMode, setDarkMode] = React.useState(false);
 
@@ -659,7 +673,7 @@ export function AppShell({
             >
               {darkMode ? <Sun size={17} /> : <Moon size={17} />}
             </button>
-            <div className="relative">
+            <div ref={noticeRef} className="relative">
               <button
                 type="button"
                 title="通知"
@@ -682,7 +696,7 @@ export function AppShell({
                 </div>
               )}
             </div>
-            <div className="relative ml-1 border-l border-[var(--border)] pl-3">
+            <div ref={profileRef} className="relative ml-1 border-l border-[var(--border)] pl-3">
               <button
                 type="button"
                 onClick={() => {
@@ -710,6 +724,10 @@ export function AppShell({
                     <span><span className="block text-[11px] font-medium text-[var(--foreground)]">安全会话已验证</span><span className="block text-[10px] text-[var(--muted-foreground)]">HttpOnly · Backend verified</span></span>
                   </div>
                   <div className="mt-3 border-t border-[var(--border)] p-2">
+                    <WorkspaceLink to="/system/profile" onClick={() => setProfileOpen(false)} className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-xs font-medium text-[var(--foreground)] transition hover:bg-[var(--muted)]"><UserRound size={15} />个人资料</WorkspaceLink>
+                    <WorkspaceLink to="/system/password" onClick={() => setProfileOpen(false)} className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-xs font-medium text-[var(--foreground)] transition hover:bg-[var(--muted)]"><KeyRound size={15} />修改密码</WorkspaceLink>
+                  </div>
+                  <div className="border-t border-[var(--border)] p-2">
                     <button type="button" onClick={logout} className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-xs font-medium text-red-600 transition hover:bg-red-500/10"><LogOut size={15} />退出当前会话</button>
                   </div>
                 </div>
