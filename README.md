@@ -1,6 +1,6 @@
-# NanoGate 管理台
+# NetonAPI 管理台
 
-NanoGate 运营侧前端（仓名 `nanogate-admin`，本地目录沿用 `newgate-front/`）：渠道、模型定价、
+NetonAPI 运营侧前端（仓名 `nanogate-admin`，本地目录沿用 `newgate-front/`）：渠道、模型定价、
 令牌、用户、结算与审计的后台。React 19 + Next.js 16 App Router，pnpm workspace，BFF 代理模式。
 
 后端是 [`nanogate-backend`](https://github.com/zoujiaqing/nanogate-backend)（默认
@@ -53,7 +53,7 @@ projects/
 > `neton-application-front-gateway`、`-member`、`-payment`、`-platform` 目前是私有仓
 > （`-system`、`-infra` 是公开的）。没有那四个仓的读权限，`pnpm install` 会在解析 `file:`
 > 依赖时失败。在它们转公开之前，公开本仓只意味着「源码可读」，不意味着「人人可自建」。
-> 其中 `front-gateway` 才是 NanoGate 的运营页面所在。
+> 其中 `front-gateway` 才是 NetonAPI 的运营页面所在。
 
 ## 开发
 

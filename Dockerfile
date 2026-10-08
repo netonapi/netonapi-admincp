@@ -1,4 +1,4 @@
-# NanoGate 管理台镜像。
+# NetonAPI 管理台镜像。
 #
 # 构建上下文与后端镜像相同：**同时含 `Neton/` 与 `NewGate/` 的那一层**（compose 里 `context: ..`）：
 #   docker build -f NewGate/newgate-front/Dockerfile -t nanogate-front:latest .
