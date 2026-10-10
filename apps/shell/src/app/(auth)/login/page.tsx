@@ -34,6 +34,13 @@ export default function LoginPage() {
       // 直连后端：成功后会话 Cookie 由后端 Set-Cookie 下发，前端不接触 token。
       const body = await login(username, password);
       if (body.code === 0) {
+        if (body.data?.status === "mfa_required" || body.data?.status === "mfa_enrollment_required") {
+          sessionStorage.setItem("neton-mfa-challenge", JSON.stringify(body.data));
+          setPassword("");
+          window.location.replace("/mfa");
+          return;
+        }
+        sessionStorage.removeItem("neton-mfa-challenge");
         window.location.href = "/";
         return;
       }

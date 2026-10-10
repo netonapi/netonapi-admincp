@@ -80,14 +80,20 @@ export async function fetchSession(): Promise<Envelope<PermissionInfo>> {
 }
 
 /** 登录：成功后会话 Cookie 由后端下发，前端不接触 token。 */
-export async function login(username: string, password: string): Promise<Envelope<unknown>> {
+export interface LoginResult {
+  status: "authenticated" | "mfa_required" | "mfa_enrollment_required";
+  challengeToken?: string;
+  challengeExpiresAt?: number;
+}
+
+export async function login(username: string, password: string): Promise<Envelope<LoginResult>> {
   const res = await fetch(`${backendBaseUrl()}/admin/system/auth/login`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     credentials: "include",
     body: JSON.stringify({ username, password }),
   });
-  return (await res.json()) as Envelope<unknown>;
+  return (await res.json()) as Envelope<LoginResult>;
 }
 
 /** 退出：后端清 Cookie。即使请求失败也要回登录页，避免停在一个操作不了的界面。 */
