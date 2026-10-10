@@ -2,6 +2,7 @@
 export default [
   "@neton/application-front-system",
   "@neton/application-front-infra",
+  "@neton/application-front-account",
   "@neton/application-front-member",
   "@neton/application-front-privchat",
   "@neton/application-front-payment",

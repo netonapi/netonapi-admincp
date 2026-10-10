@@ -15,6 +15,7 @@
     "@neton/application-front-cs": "file:../../../neton-application-front-cs",
     "@neton/application-front-infra": "file:../../../neton-application-front-infra",
     "@neton/application-front-kit": "workspace:*",
+    "@neton/application-front-account": "file:../../../neton-application-front-account",
     "@neton/application-front-member": "file:../../../neton-application-front-member",
     "@neton/application-front-payment": "file:../../../neton-application-front-payment",
     "@neton/application-front-platform": "file:../../../neton-application-front-platform",
