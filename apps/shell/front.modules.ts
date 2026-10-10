@@ -11,6 +11,7 @@ export default [
   "@neton/application-front-system",
   "@neton/application-front-gateway",
   "@neton/application-front-infra",
+  "@neton/application-front-account",
   "@neton/application-front-member",
   "@neton/application-front-payment",
 ];
