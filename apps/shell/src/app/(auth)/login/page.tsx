@@ -3,16 +3,24 @@
 import * as React from "react";
 import { ArrowRight, Check, Eye, EyeOff, Fingerprint, KeyRound, Moon, ShieldCheck, Sun } from "lucide-react";
 import { Alert, Button, Input, Label } from "@neton/application-front-kit";
-import { login } from "@neton/application-front-runtime/client";
+import { ApiError, login } from "@neton/application-front-runtime/client";
+import { useBrand } from "@neton/application-front-runtime/brand";
+import { useDescribeError } from "@neton/application-front-runtime/errors";
+import { useT } from "@neton/application-front-runtime/i18n";
 import { BrandMark } from "@/components/brand-mark";
+import { LocaleSwitcher } from "@/components/locale-switcher";
+import { ServiceStatus } from "@/components/service-status";
 
 export default function LoginPage() {
+  const t = useT("shell");
+  const describeError = useDescribeError();
   const [username, setUsername] = React.useState("");
   const [password, setPassword] = React.useState("");
   const [passwordVisible, setPasswordVisible] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const [pending, setPending] = React.useState(false);
   const [darkMode, setDarkMode] = React.useState(false);
+  const brand = useBrand(t("login.title"));
 
   React.useEffect(() => {
     setDarkMode(document.documentElement.classList.contains("dark"));
@@ -34,12 +42,20 @@ export default function LoginPage() {
       // 直连后端：成功后会话 Cookie 由后端 Set-Cookie 下发，前端不接触 token。
       const body = await login(username, password);
       if (body.code === 0) {
+        if (body.data?.status === "mfa_required" || body.data?.status === "mfa_enrollment_required") {
+          sessionStorage.setItem("neton-mfa-challenge", JSON.stringify(body.data));
+          setPassword("");
+          window.location.replace("/mfa");
+          return;
+        }
+        sessionStorage.removeItem("neton-mfa-challenge");
         window.location.href = "/";
         return;
       }
-      setError(body.message || "登录失败，请检查账号信息");
-    } catch {
-      setError("无法连接到管理服务，请稍后重试");
+      // 后端把「用户不存在 / 密码错误 / 已停用」统一成同一句，这里也只给一句（评审 R08）。
+      setError(body.code === 10300 || body.code === 429 ? describeError(new ApiError("rate_limited", body.message ?? "")) : t("login.failed"));
+    } catch (cause) {
+      setError(describeError(cause instanceof ApiError ? cause : new ApiError("network", String(cause))));
     } finally {
       setPending(false);
     }
@@ -54,16 +70,14 @@ export default function LoginPage() {
         <div className="flex items-center gap-3">
           <BrandMark className="h-10 w-10" />
           <div>
-            <div className="text-sm font-semibold tracking-[-0.01em]">Neton</div>
-            <div className="mt-0.5 text-[10px] font-medium tracking-[0.18em] text-[var(--muted-foreground)]">CONTROL PLANE</div>
+            <div className="text-sm font-semibold tracking-[-0.01em]">{brand.name}</div>
+            {brand.tagline && <div className="mt-0.5 text-[10px] font-medium tracking-[0.18em] text-[var(--muted-foreground)]">{brand.tagline}</div>}
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <div className="hidden items-center gap-2 rounded-full border border-[var(--border)] bg-[var(--card)]/70 px-3 py-2 text-[11px] text-[var(--muted-foreground)] shadow-sm backdrop-blur sm:flex">
-            <span className="relative flex h-2 w-2"><span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-50" /><span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500" /></span>
-            Identity service operational
-          </div>
-          <button type="button" onClick={toggleTheme} aria-label={darkMode ? "切换到亮色模式" : "切换到暗色模式"} className="flex h-9 w-9 items-center justify-center rounded-full border border-[var(--border)] bg-[var(--card)] text-[var(--muted-foreground)] shadow-sm transition hover:text-[var(--foreground)]">
+          <ServiceStatus className="hidden items-center gap-2 rounded-full border border-[var(--border)] bg-[var(--card)]/70 px-3 py-2 text-[11px] text-[var(--muted-foreground)] shadow-sm backdrop-blur sm:flex" />
+          <LocaleSwitcher />
+          <button type="button" onClick={toggleTheme} aria-label={darkMode ? t("theme.light") : t("theme.dark")} className="flex h-9 w-9 items-center justify-center rounded-full border border-[var(--border)] bg-[var(--card)] text-[var(--muted-foreground)] shadow-sm transition hover:text-[var(--foreground)]">
             {darkMode ? <Sun size={15} /> : <Moon size={15} />}
           </button>
         </div>
@@ -78,17 +92,17 @@ export default function LoginPage() {
             <div className="relative">
               <div className="inline-flex items-center gap-2 rounded-full border border-[var(--border)] bg-[var(--card)] px-3 py-1.5 text-[10px] font-semibold tracking-[0.14em] text-[var(--muted-foreground)] shadow-sm">
                 <Fingerprint size={13} className="text-[var(--primary)]" />
-                PRIVILEGED ACCESS
+                {t("login.privileged")}
               </div>
-              <h1 className="mt-8 max-w-sm text-[30px] font-semibold leading-[1.2] tracking-[-0.035em] sm:text-[34px]">统一管理入口</h1>
-              <p className="mt-4 max-w-sm text-sm leading-7 text-[var(--muted-foreground)]">连接身份、权限与业务模块。每次访问均经过服务端验证，并纳入完整的操作审计。</p>
+              <h1 className="mt-8 max-w-sm text-[30px] font-semibold leading-[1.2] tracking-[-0.035em] sm:text-[34px]">{t("login.heroTitle")}</h1>
+              <p className="mt-4 max-w-sm text-sm leading-7 text-[var(--muted-foreground)]">{brand.description || t("login.heroBody")}</p>
             </div>
 
             <div className="relative mt-10 space-y-1 rounded-xl border border-[var(--border)] bg-[var(--card)]/75 p-2 shadow-sm backdrop-blur">
               {[
-                ["身份验证", "Server verified session"],
-                ["访问策略", "Role-based authorization"],
-                ["操作审计", "Traceable administration"],
+                [t("login.featureIdentity"), t("login.featureIdentityDetail")],
+                [t("login.featurePolicy"), t("login.featurePolicyDetail")],
+                [t("login.featureAudit"), t("login.featureAuditDetail")],
               ].map(([label, detail]) => (
                 <div key={label} className="flex items-center gap-3 rounded-xl px-3 py-3">
                   <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[var(--primary-soft)] text-[var(--primary)]"><Check size={14} strokeWidth={2.5} /></span>
@@ -97,9 +111,8 @@ export default function LoginPage() {
               ))}
             </div>
 
-            <div className="relative mt-auto flex items-center justify-between pt-8 text-[10px] font-medium tracking-[0.1em] text-[var(--muted-foreground)]">
-              <span>NETON APPLICATION FRONT</span>
-              <span>SECURE / AUDITED</span>
+            <div className="relative mt-auto pt-8 text-[10px] font-medium tracking-[0.1em] text-[var(--muted-foreground)]">
+              <span>{brand.name}</span>
             </div>
           </section>
 
@@ -107,35 +120,35 @@ export default function LoginPage() {
             <div className="mx-auto w-full max-w-[390px]">
               <div className="mb-8">
                 <div className="flex h-10 w-10 items-center justify-center rounded-lg border border-[var(--border)] bg-[var(--muted)] text-[var(--primary)]"><KeyRound size={18} /></div>
-                <p className="mt-6 text-[10px] font-semibold tracking-[0.17em] text-[var(--primary)]">ADMINISTRATOR AUTHENTICATION</p>
-                <h2 className="mt-2 text-2xl font-semibold tracking-[-0.03em]">验证管理员身份</h2>
-                <p className="mt-2 text-xs leading-6 text-[var(--muted-foreground)]">使用已授权的管理账号继续访问控制平面。</p>
+                <p className="mt-6 text-[10px] font-semibold tracking-[0.17em] text-[var(--primary)]">{t("login.eyebrow")}</p>
+                <h2 className="mt-2 text-2xl font-semibold tracking-[-0.03em]">{t("login.title")}</h2>
+                <p className="mt-2 text-xs leading-6 text-[var(--muted-foreground)]">{t("login.subtitle")}</p>
               </div>
 
               <form className="space-y-4" onSubmit={submit}>
                 {error && <Alert tone="error">{error}</Alert>}
                 <div className="space-y-2">
-                  <Label htmlFor="username">管理员账号</Label>
-                  <Input id="username" name="username" value={username} onChange={(event) => setUsername(event.target.value)} placeholder="请输入用户名" autoComplete="username" autoFocus className="h-11 bg-[var(--background)] px-3.5" />
+                  <Label htmlFor="username">{t("login.username")}</Label>
+                  <Input id="username" name="username" value={username} onChange={(event) => setUsername(event.target.value)} placeholder={t("login.usernamePlaceholder")} autoComplete="username" autoFocus className="h-11 bg-[var(--background)] px-3.5" />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="password">登录密码</Label>
+                  <Label htmlFor="password">{t("login.password")}</Label>
                   <div className="relative">
-                    <Input id="password" name="password" type={passwordVisible ? "text" : "password"} value={password} onChange={(event) => setPassword(event.target.value)} placeholder="请输入密码" autoComplete="current-password" className="h-11 bg-[var(--background)] px-3.5 pr-11" />
-                    <button type="button" onClick={() => setPasswordVisible((value) => !value)} className="absolute right-2 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-lg text-[var(--muted-foreground)] transition hover:bg-[var(--muted)] hover:text-[var(--foreground)]" aria-label={passwordVisible ? "隐藏密码" : "显示密码"}>
+                    <Input id="password" name="password" type={passwordVisible ? "text" : "password"} value={password} onChange={(event) => setPassword(event.target.value)} placeholder={t("login.passwordPlaceholder")} autoComplete="current-password" className="h-11 bg-[var(--background)] px-3.5 pr-11" />
+                    <button type="button" onClick={() => setPasswordVisible((value) => !value)} className="absolute right-2 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-lg text-[var(--muted-foreground)] transition hover:bg-[var(--muted)] hover:text-[var(--foreground)]" aria-label={passwordVisible ? t("login.hidePassword") : t("login.showPassword")}>
                       {passwordVisible ? <EyeOff size={16} /> : <Eye size={16} />}
                     </button>
                   </div>
                 </div>
                 <Button type="submit" className="group mt-2 h-11 w-full gap-2 text-sm" disabled={pending || !username || !password}>
-                  {pending ? "正在验证…" : "安全登录"}
+                  {pending ? t("login.submitting") : t("login.submit")}
                   {!pending && <ArrowRight size={15} className="transition-transform group-hover:translate-x-0.5" />}
                 </Button>
               </form>
 
               <div className="mt-7 flex items-start gap-2.5 border-t border-[var(--border)] pt-5 text-[11px] leading-5 text-[var(--muted-foreground)]">
                 <ShieldCheck size={15} className="mt-0.5 shrink-0 text-[var(--primary)]" />
-                <span>仅限授权人员访问。登录行为、权限变更与关键操作均会被记录。</span>
+                <span>{t("login.notice")}</span>
               </div>
             </div>
           </section>
@@ -143,8 +156,7 @@ export default function LoginPage() {
       </section>
 
       <footer className="relative z-10 mx-auto flex h-[52px] w-full max-w-[1280px] items-center justify-between px-5 text-[10px] text-[var(--muted-foreground)] sm:px-8">
-        <span>© 2026 Neton</span>
-        <span className="tracking-[0.08em]">CONTROL PLANE · HONG KONG</span>
+        <span>{brand.copyright}</span>
       </footer>
     </main>
   );

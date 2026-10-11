@@ -3,13 +3,16 @@
 import * as React from "react";
 import {
   WorkspaceStore,
+  WorkspaceLabelsProvider,
   WorkspaceStoreProvider,
   buildWorkspacePages,
   createBrowserHistoryHost,
+  type WorkspaceLabels,
   type WorkspacePage,
   type WorkspaceUiAdapter,
 } from "@neton/application-front-workspace";
 import { KitNavigationProvider, PortalHostProvider } from "@neton/application-front-kit";
+import { useT } from "@neton/application-front-runtime/i18n";
 import { buildRouteMap } from "@neton/application-front-runtime/menu";
 import type { PermissionInfo } from "@neton/application-front-runtime/types";
 import { installedModules, pageRegistry } from "@/generated/modules.generated";
@@ -23,14 +26,16 @@ const UI: WorkspaceUiAdapter = {
 };
 
 /** 工作台不是任何模块的页面，作为内置页注入页面表，好让它也是一个正常实例。 */
-const HOME_PAGE: WorkspacePage = {
-  key: "__home",
-  path: "/",
-  identity: [],
-  title: "工作台",
-  standalone: true,
-  load: () => import("@/components/dashboard").then((m) => ({ default: m.default })),
-};
+function homePage(title: string): WorkspacePage {
+  return {
+    key: "__home",
+    path: "/",
+    identity: [],
+    title,
+    standalone: true,
+    load: () => import("@/components/dashboard").then((m) => ({ default: m.default })),
+  };
+}
 
 /**
  * 工作区根。
@@ -39,6 +44,17 @@ const HOME_PAGE: WorkspacePage = {
  * 因此实例的寿命由 store 决定而不是由宿主路由决定。
  */
 export function WorkspaceRoot({ info, nav }: { info: PermissionInfo; nav: NavItem[] }) {
+  const t = useT("shell");
+  const homeTitle = t("nav.home");
+  const labels = React.useMemo<WorkspaceLabels>(() => ({
+    loading: t("workspace.loading"),
+    renderFailed: (title) => t("workspace.renderFailed", { title }),
+    loadFailed: (title) => t("workspace.loadFailed", { title }),
+    staleVersion: t("workspace.staleVersion"),
+    retry: t("workspace.retry"),
+    reload: t("workspace.reload"),
+    confirmCloseDirty: (title) => t("workspace.confirmCloseDirty", { title }),
+  }), [t]);
   const pages = React.useMemo(() => {
     // 菜单名是列表/配置类页面最准确的页签标题（运营改菜单名，页签跟着变）。
     const titles: Record<string, string> = {};
@@ -55,15 +71,16 @@ export function WorkspaceRoot({ info, nav }: { info: PermissionInfo; nav: NavIte
       const name = nameByKey.get(key);
       if (name) titles[path] = name;
     }
-    return [HOME_PAGE, ...buildWorkspacePages(installedModules, pageRegistry, titles)];
-  }, [info.menus]);
+    return [homePage(homeTitle), ...buildWorkspacePages(installedModules, pageRegistry, titles)];
+  }, [info.menus, homeTitle]);
 
   const [store] = React.useState(() => new WorkspaceStore({
     pages,
     host: createBrowserHistoryHost(),
     homeHref: "/",
     pinHome: true,
-    persist: true,
+    // 按身份域 + 用户隔离：换人登录不会恢复出上一个人的页签（评审 R19）。
+    persist: { scope: `admin:${info.user.userId}` },
   }));
 
   React.useEffect(() => {
@@ -73,6 +90,7 @@ export function WorkspaceRoot({ info, nav }: { info: PermissionInfo; nav: NavIte
 
   return (
     <WorkspaceStoreProvider store={store}>
+      <WorkspaceLabelsProvider labels={labels}>
       <AppShell
         items={nav}
         user={info.user}
@@ -82,6 +100,7 @@ export function WorkspaceRoot({ info, nav }: { info: PermissionInfo; nav: NavIte
         pages={pages}
         ui={UI}
       />
+      </WorkspaceLabelsProvider>
     </WorkspaceStoreProvider>
   );
 }

@@ -60,7 +60,13 @@ import type { NavItem } from "@neton/application-front-runtime/menu";
 import type { PermissionInfo } from "@neton/application-front-runtime/types";
 import { FrontClientProvider, useQueryClient } from "@neton/application-front-runtime/client-context";
 import { logout as logoutSession } from "@neton/application-front-runtime/client";
-import { cn } from "@neton/application-front-kit";
+import { useBrand } from "@neton/application-front-runtime/brand";
+import { useServiceHealth } from "@neton/application-front-runtime/health";
+import { useT } from "@neton/application-front-runtime/i18n";
+import { WorkspaceStore } from "@neton/application-front-workspace";
+import { LocaleSwitcher } from "./locale-switcher";
+import { ServiceStatus } from "./service-status";
+import { cn, useModalFocus } from "@neton/application-front-kit";
 import { BrandMark } from "./brand-mark";
 
 type FrontUser = PermissionInfo["user"];
@@ -227,6 +233,7 @@ function NavBranch({
  * 换成 instanceId + resourceKey + 注册表标题后一并消失。
  */
 function PageTabs() {
+  const t = useT("shell");
   const store = useWorkspaceStore();
   const { instances, activeId } = useWorkspace();
   const closeTab = useCloseGuard();
@@ -287,7 +294,7 @@ function PageTabs() {
         {/* 仍然渲染真 <a href>：中键/新窗口/复制链接必须照常可用，只接管普通左键 */}
         <WorkspaceLink
           to={instance.location.href}
-          aria-label={`打开${title}`}
+          aria-label={t("tabs.open", { title })}
           onClick={(event) => {
             event.preventDefault();
             setTabMenuOpen(false);
@@ -298,12 +305,12 @@ function PageTabs() {
         <span className="pointer-events-none relative z-[1] flex items-center gap-2">
           {instance.pinned && <Home size={13} />}
           <span className="max-w-[13rem] truncate">{title}</span>
-          {instance.dirty && <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--primary)]" aria-label="有未保存内容" />}
+          {instance.dirty && <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--primary)]" aria-label={t("tabs.unsaved")} />}
         </span>
         {!instance.pinned && (
           <button
             type="button"
-            aria-label={`关闭${title}`}
+            aria-label={t("tabs.close", { title })}
             onClick={() => closeTab(instance.instanceId)}
             className="relative z-10 rounded p-0.5 text-[var(--muted-foreground)] opacity-60 transition hover:bg-[var(--muted)] hover:text-[var(--foreground)] group-hover:opacity-100"
           >
@@ -317,20 +324,20 @@ function PageTabs() {
 
   return (
     <div className="relative z-30 flex h-10 min-w-0 items-center border-b border-[var(--border)] bg-[var(--background)] px-2">
-      <button type="button" aria-label="向左滚动页签" disabled={!scrollState.left} onClick={() => scrollTabs(-1)} className="mr-1 flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-[var(--muted-foreground)] transition hover:bg-[var(--card)] hover:text-[var(--foreground)] disabled:opacity-25">
+      <button type="button" aria-label={t("tabs.scrollLeft")} disabled={!scrollState.left} onClick={() => scrollTabs(-1)} className="mr-1 flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-[var(--muted-foreground)] transition hover:bg-[var(--card)] hover:text-[var(--foreground)] disabled:opacity-25">
         <ChevronLeft size={15} />
       </button>
       <div ref={scrollRef} onScroll={updateScrollState} className="front-scrollbar-hidden flex min-w-0 flex-1 items-center gap-1 overflow-x-auto px-0.5">
         {instances.map((instance) => renderTab(instance))}
       </div>
-      <button type="button" aria-label="向右滚动页签" disabled={!scrollState.right} onClick={() => scrollTabs(1)} className="ml-1 flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-[var(--muted-foreground)] transition hover:bg-[var(--card)] hover:text-[var(--foreground)] disabled:opacity-25">
+      <button type="button" aria-label={t("tabs.scrollRight")} disabled={!scrollState.right} onClick={() => scrollTabs(1)} className="ml-1 flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-[var(--muted-foreground)] transition hover:bg-[var(--card)] hover:text-[var(--foreground)] disabled:opacity-25">
         <ChevronRight size={15} />
       </button>
       <div className="relative ml-1 border-l border-[var(--border)] pl-1">
-        <button type="button" aria-label="查看全部页签" aria-expanded={tabMenuOpen} onClick={() => setTabMenuOpen((value) => !value)} className="flex h-7 w-7 items-center justify-center rounded-md text-[var(--muted-foreground)] transition hover:bg-[var(--card)] hover:text-[var(--foreground)]">
+        <button type="button" aria-label={t("tabs.all")} aria-expanded={tabMenuOpen} onClick={() => setTabMenuOpen((value) => !value)} className="flex h-7 w-7 items-center justify-center rounded-md text-[var(--muted-foreground)] transition hover:bg-[var(--card)] hover:text-[var(--foreground)]">
           <List size={15} />
         </button>
-        {tabMenuOpen && <><button type="button" aria-label="关闭页签列表" className="fixed inset-0 z-[80] cursor-default" onClick={() => setTabMenuOpen(false)} /><div className="absolute right-0 top-9 z-[90] w-64 overflow-hidden rounded-xl border border-[var(--border-strong)] bg-[var(--popover)] p-1.5 shadow-[var(--shadow-md)]">
+        {tabMenuOpen && <><button type="button" aria-label={t("tabs.closeList")} className="fixed inset-0 z-[80] cursor-default" onClick={() => setTabMenuOpen(false)} /><div className="absolute right-0 top-9 z-[90] w-64 overflow-hidden rounded-xl border border-[var(--border-strong)] bg-[var(--popover)] p-1.5 shadow-[var(--shadow-md)]">
           <div className="flex items-center justify-between px-2 py-2"><span className="text-[10px] font-semibold tracking-[0.12em] text-[var(--muted-foreground)]">OPEN WORKSPACES</span><span className="text-[10px] text-[var(--muted-foreground)]">{instances.length}</span></div>
           <div className="max-h-72 space-y-0.5 overflow-y-auto">{instances.map((instance) => renderTab(instance, true))}</div>
         </div></>}
@@ -346,12 +353,14 @@ function PageTabs() {
  * 正是本次要消灭的行为。管理后台里「刷新」的语义本来就是重新取数。
  */
 function RefreshButton() {
+  const t = useT("shell");
   const queryClient = useQueryClient();
   const [refreshing, setRefreshing] = React.useState(false);
   return (
     <button
       type="button"
-      title="刷新数据"
+      title={t("tabs.refresh")}
+      aria-label={t("tabs.refresh")}
       onClick={() => {
         setRefreshing(true);
         void queryClient.invalidateQueries();
@@ -373,9 +382,12 @@ function CommandPalette({
   items: FlatNavItem[];
   onClose(): void;
 }) {
+  const t = useT("shell");
   const store = useWorkspaceStore();
   const [query, setQuery] = React.useState("");
   const inputRef = React.useRef<HTMLInputElement>(null);
+  const dialogRef = React.useRef<HTMLDivElement>(null);
+  useModalFocus(dialogRef, open, onClose);
   const results = items.filter((item) => `${item.name} ${item.trail.join(" ")}`.toLowerCase().includes(query.toLowerCase()));
 
   React.useEffect(() => {
@@ -390,9 +402,10 @@ function CommandPalette({
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center bg-[#09090b]/35 px-4 pt-[12vh] backdrop-blur-sm" onMouseDown={onClose}>
       <div
+        ref={dialogRef}
         role="dialog"
         aria-modal="true"
-        aria-label="菜单搜索"
+        aria-label={t("search.label")}
         className="w-full max-w-xl overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--popover)] text-[var(--popover-foreground)] shadow-2xl"
         onMouseDown={(event) => event.stopPropagation()}
       >
@@ -402,8 +415,8 @@ function CommandPalette({
             ref={inputRef}
             value={query}
             onChange={(event) => setQuery(event.target.value)}
-            onKeyDown={(event) => event.key === "Escape" && onClose()}
-            placeholder="搜索菜单、页面或功能…"
+            data-autofocus
+            placeholder={t("search.placeholder")}
             className="h-14 min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-[var(--muted-foreground)] focus-visible:outline-none focus-visible:ring-0"
           />
           <kbd className="rounded-md border border-[var(--border)] bg-[var(--muted)] px-2 py-1 text-xs text-[#77837d]">ESC</kbd>
@@ -432,7 +445,7 @@ function CommandPalette({
               </button>
             );
           }) : (
-            <div className="px-4 py-12 text-center text-sm text-[var(--muted-foreground)]">没有找到匹配的页面</div>
+            <div className="px-4 py-12 text-center text-sm text-[var(--muted-foreground)]">{t("search.empty")}</div>
           )}
         </div>
       </div>
@@ -459,6 +472,10 @@ export function AppShell({
   /** 本发行版使用的 UI 套件适配（弹层宿主 + 导航）。 */
   ui: WorkspaceUiAdapter;
 }) {
+  const t = useT("shell");
+  const brand = useBrand("");
+  const health = useServiceHealth();
+  const [logoutError, setLogoutError] = React.useState(false);
   const pathname = useActivePath();
   const store = useWorkspaceStore();
   const { instances, activeId } = useWorkspace();
@@ -476,8 +493,8 @@ export function AppShell({
   const profileRef = React.useRef<HTMLDivElement>(null);
   // 个人中心入口只在对应页面已装配时出现：发行版可以不装 front-system，菜单不能指向不存在的页面
   const accountLinks = [
-    { to: "/system/profile", label: "个人资料", Icon: UserRound },
-    { to: "/system/password", label: "修改密码", Icon: KeyRound },
+    { to: "/system/profile", label: t("account.profile"), Icon: UserRound },
+    { to: "/system/password", label: t("account.password"), Icon: KeyRound },
   ].filter((link) => pages.some((page) => page.path === link.to));
   // 点弹层外任意处关闭（按下时判定：等到 click 才关，拖选文字松手在外面也会误关）
   React.useEffect(() => {
@@ -525,8 +542,11 @@ export function AppShell({
   }
 
   async function logout() {
-    // 后端清 HttpOnly Cookie（前端清不掉，这是它的意义所在），随后回登录页。
-    await logoutSession();
+    // 后端吊销会话并清 HttpOnly Cookie（前端清不掉，这是它的意义所在），成功后才回登录页。
+    // 失败时如实提示：会话还有效，不能让人以为已经退出（评审 R04）。
+    setLogoutError(false);
+    WorkspaceStore.clearPersisted();
+    if (!(await logoutSession())) setLogoutError(true);
   }
 
   async function toggleFullscreen() {
@@ -546,16 +566,16 @@ export function AppShell({
 
   const initials = (user.nickname || user.username || "N").slice(0, 1).toUpperCase();
   const activeInstance = instances.find((i) => i.instanceId === activeId);
-  const activeTitle = activeInstance ? instanceTitle(activeInstance) : "页面";
+  const activeTitle = activeInstance ? instanceTitle(activeInstance) : t("nav.page");
   const trails = current?.trail
     ? [...current.trail, ...(pathname === current.path ? [] : [activeTitle])]
-    : (pathname === "/" ? ["工作台"] : [activeTitle]);
+    : (pathname === "/" ? [t("nav.home")] : [activeTitle]);
   const sidebarCompact = collapsed && !mobileOpen;
 
   return (
     <FrontClientProvider permissions={permissions} roles={roles} user={user} menus={menus}>
       <div className="flex h-screen overflow-hidden bg-[var(--front-canvas)]">
-      {mobileOpen && <button aria-label="关闭导航" className="fixed inset-0 z-30 bg-[#09090b]/45 backdrop-blur-sm lg:hidden" onClick={() => setMobileOpen(false)} />}
+      {mobileOpen && <button aria-label={t("nav.close")} className="fixed inset-0 z-30 bg-[#09090b]/45 backdrop-blur-sm lg:hidden" onClick={() => setMobileOpen(false)} />}
 
       <aside
         className={cn(
@@ -568,15 +588,15 @@ export function AppShell({
           <BrandMark className="h-8 w-8" />
           {!sidebarCompact && (
             <div className="min-w-0">
-              <div className="truncate text-sm font-semibold tracking-[-0.02em]">Neton</div>
-              <div className="mt-0.5 text-[10px] font-medium tracking-[0.14em] text-[var(--muted-foreground)]">CONTROL PLANE</div>
+              <div className="truncate text-sm font-semibold tracking-[-0.02em]">{brand.name}</div>
+              {brand.tagline && <div className="mt-0.5 truncate text-[10px] font-medium tracking-[0.14em] text-[var(--muted-foreground)]">{brand.tagline}</div>}
             </div>
           )}
           <button
             type="button"
             className="ml-auto rounded-lg p-2 text-[var(--muted-foreground)] transition hover:bg-[var(--sidebar-accent)] hover:text-[var(--sidebar-foreground)] lg:hidden"
             onClick={() => setMobileOpen(false)}
-            aria-label="关闭导航"
+            aria-label={t("nav.close")}
           >
             <X size={18} />
           </button>
@@ -586,7 +606,7 @@ export function AppShell({
           <WorkspaceLink
             to="/"
             onClick={() => setMobileOpen(false)}
-            title="工作台"
+            title={t("nav.home")}
             className={cn(
               "mb-3 flex items-center rounded-lg transition-colors",
               sidebarCompact ? "mx-auto h-10 w-10 justify-center" : "gap-3 px-3 py-2 text-[13px] font-medium",
@@ -596,7 +616,7 @@ export function AppShell({
             )}
           >
             <Home size={18} strokeWidth={1.8} />
-            {!sidebarCompact && <span>工作台</span>}
+            {!sidebarCompact && <span>{t("nav.home")}</span>}
           </WorkspaceLink>
           <div className="space-y-0.5">
             {items.map((item) => (
@@ -613,17 +633,10 @@ export function AppShell({
         </nav>
 
         <div className="border-t border-[var(--sidebar-border)] p-3">
-          <div className={cn(sidebarCompact ? "flex h-9 items-center justify-center" : "flex items-center gap-3 px-2 py-1.5")}>
-            <span className="relative flex h-2.5 w-2.5">
-              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[var(--online)] opacity-40" />
-              <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-[var(--online)]" />
-            </span>
-            {!sidebarCompact && (
-              <span className="min-w-0">
-                <span className="block text-[11px] font-medium text-[var(--sidebar-foreground)]">服务连接正常</span>
-                <span className="block text-[10px] text-[var(--muted-foreground)]">Backend verified</span>
-              </span>
-            )}
+          <div className={cn(sidebarCompact ? "flex h-9 items-center justify-center" : "px-2 py-1.5")}>
+            {sidebarCompact
+              ? <span className={cn("inline-flex h-2.5 w-2.5 rounded-full", health === "ready" ? "bg-[var(--online)]" : health === "degraded" ? "bg-amber-500" : "bg-zinc-400")} aria-label={t(`status.${health}`)} />
+              : <ServiceStatus className="flex items-center gap-3 text-[11px] font-medium text-[var(--sidebar-foreground)]" />}
           </div>
         </div>
       </aside>
@@ -634,16 +647,16 @@ export function AppShell({
             type="button"
             className="hidden h-9 w-9 items-center justify-center rounded-lg text-[var(--muted-foreground)] transition hover:bg-[var(--muted)] hover:text-[var(--foreground)] lg:flex"
             onClick={toggleCollapsed}
-            aria-label={collapsed ? "展开侧栏" : "收起侧栏"}
-            title={collapsed ? "展开侧栏" : "收起侧栏"}
+            aria-label={collapsed ? t("nav.expand") : t("nav.collapse")}
+            title={collapsed ? t("nav.expand") : t("nav.collapse")}
           >
             {collapsed ? <PanelLeftOpen size={18} /> : <PanelLeftClose size={18} />}
           </button>
-          <button className="rounded-lg border border-[var(--border)] p-2 text-[var(--muted-foreground)] hover:bg-[var(--muted)] lg:hidden" onClick={() => setMobileOpen(true)} aria-label="打开导航">
+          <button className="rounded-lg border border-[var(--border)] p-2 text-[var(--muted-foreground)] hover:bg-[var(--muted)] lg:hidden" onClick={() => setMobileOpen(true)} aria-label={t("nav.open")}>
             <Menu size={19} />
           </button>
           <div className="hidden min-w-0 items-center gap-2 text-xs md:flex">
-            <span className="font-semibold text-[var(--foreground)]">Control Plane</span>
+            <span className="font-semibold text-[var(--foreground)]">{brand.name}</span>
             {trails.map((trail) => (
               <React.Fragment key={trail}>
                 <ChevronRight size={13} className="text-[var(--muted-foreground)]" />
@@ -655,24 +668,25 @@ export function AppShell({
           <div className="ml-auto flex items-center gap-1.5">
             <button
               type="button"
-              aria-label="搜索菜单和页面"
+              aria-label={t("search.open")}
               onClick={() => setSearchOpen(true)}
               className="mr-1 flex h-9 items-center gap-2 rounded-lg border border-[var(--border)] bg-[var(--background)] px-3 text-xs text-[var(--muted-foreground)] shadow-[inset_0_1px_1px_rgba(16,24,40,.025)] transition hover:border-[var(--input)] hover:bg-[var(--card)] md:min-w-[220px]"
             >
               <Search size={15} />
-              <span className="hidden md:block">搜索菜单和页面</span>
+              <span className="hidden md:block">{t("search.open")}</span>
               <span className="ml-auto hidden items-center gap-1 rounded-md border border-[var(--border)] bg-[var(--card)] px-1.5 py-0.5 text-xs font-semibold text-[var(--muted-foreground)] md:flex">
                 <Command size={9} />K
               </span>
             </button>
             <RefreshButton />
-            <button type="button" title={fullscreen ? "退出全屏" : "全屏"} onClick={toggleFullscreen} className="hidden h-9 w-9 items-center justify-center rounded-md text-[var(--muted-foreground)] transition hover:bg-[var(--muted)] hover:text-[var(--foreground)] sm:flex">
+            <LocaleSwitcher className="hidden h-9 items-center gap-1 rounded-md px-2 text-[var(--muted-foreground)] transition hover:bg-[var(--muted)] sm:flex" />
+            <button type="button" title={fullscreen ? t("toolbar.exitFullscreen") : t("toolbar.fullscreen")} aria-label={fullscreen ? t("toolbar.exitFullscreen") : t("toolbar.fullscreen")} onClick={toggleFullscreen} className="hidden h-9 w-9 items-center justify-center rounded-md text-[var(--muted-foreground)] transition hover:bg-[var(--muted)] hover:text-[var(--foreground)] sm:flex">
               {fullscreen ? <Minimize2 size={17} /> : <Maximize2 size={17} />}
             </button>
             <button
               type="button"
-              title={darkMode ? "切换到亮色模式" : "切换到暗色模式"}
-              aria-label={darkMode ? "切换到亮色模式" : "切换到暗色模式"}
+              title={darkMode ? t("theme.light") : t("theme.dark")}
+              aria-label={darkMode ? t("theme.light") : t("theme.dark")}
               onClick={toggleTheme}
               className="flex h-9 w-9 items-center justify-center rounded-md text-[var(--muted-foreground)] transition hover:bg-[var(--muted)] hover:text-[var(--foreground)]"
             >
@@ -681,7 +695,8 @@ export function AppShell({
             <div ref={noticeRef} className="relative">
               <button
                 type="button"
-                title="通知"
+                title={t("toolbar.notifications")}
+                aria-label={t("toolbar.notifications")}
                 onClick={() => {
                   setNoticeOpen((value) => !value);
                   setProfileOpen(false);
@@ -689,14 +704,14 @@ export function AppShell({
                 className="relative flex h-9 w-9 items-center justify-center rounded-md text-[var(--muted-foreground)] transition hover:bg-[var(--muted)] hover:text-[var(--foreground)]"
               >
                 <Bell size={17} />
-                <span className="absolute right-2 top-1.5 h-2 w-2 rounded-full border-2 border-white bg-[#ef8354]" />
+                {health === "degraded" && <span className="absolute right-2 top-1.5 h-2 w-2 rounded-full border-2 border-white bg-[#ef8354]" />}
               </button>
               {noticeOpen && (
                 <div className="absolute right-0 top-12 z-[80] w-72 rounded-xl border border-[var(--border)] bg-[var(--popover)] p-3 text-[var(--popover-foreground)] shadow-2xl">
-                  <div className="px-2 pb-2 text-xs font-bold text-[var(--foreground)]">系统通知</div>
+                  <div className="px-2 pb-2 text-xs font-bold text-[var(--foreground)]">{t("notifications.title")}</div>
                   <div className="flex gap-3 rounded-xl bg-[var(--primary-soft)] p-3">
                     <span className="mt-0.5 flex h-8 w-8 items-center justify-center rounded-lg bg-[var(--primary-soft)] text-[var(--primary)]"><ShieldCheck size={16} /></span>
-                    <span><span className="block text-xs font-semibold text-[var(--foreground)]">服务连接正常</span><span className="mt-1 block text-xs leading-4 text-[var(--muted-foreground)]">认证会话与后端菜单已成功加载。</span></span>
+                    <ServiceStatus detail className="text-xs font-semibold text-[var(--foreground)]" />
                   </div>
                 </div>
               )}
@@ -726,7 +741,7 @@ export function AppShell({
                   </div>
                   <div className="mx-3 flex items-center gap-3 rounded-xl border border-[var(--border)] bg-[var(--muted)] px-3 py-2.5">
                     <ShieldCheck size={15} className="text-[var(--primary)]" />
-                    <span><span className="block text-[11px] font-medium text-[var(--foreground)]">安全会话已验证</span><span className="block text-[10px] text-[var(--muted-foreground)]">HttpOnly · Backend verified</span></span>
+                    <span className="block text-[11px] font-medium text-[var(--foreground)]">{t("account.sessionVerified")}</span>
                   </div>
                   {accountLinks.length > 0 && (
                     <div className="mt-3 border-t border-[var(--border)] p-2">
@@ -736,7 +751,8 @@ export function AppShell({
                     </div>
                   )}
                   <div className={cn("border-t border-[var(--border)] p-2", accountLinks.length === 0 && "mt-3")}>
-                    <button type="button" onClick={logout} className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-xs font-medium text-red-600 transition hover:bg-red-500/10"><LogOut size={15} />退出当前会话</button>
+                    {logoutError && <div role="alert" className="mb-2 rounded-lg bg-red-500/10 px-3 py-2 text-[11px] text-red-600">{t("account.logoutFailed")}</div>}
+                    <button type="button" onClick={logout} className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-xs font-medium text-red-600 transition hover:bg-red-500/10"><LogOut size={15} />{t("account.logout")}</button>
                   </div>
                 </div>
               )}
