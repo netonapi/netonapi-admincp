@@ -62,6 +62,19 @@ export class WorkspaceStore {
 
   getSnapshot = (): WorkspaceSnapshot => this.snapshot;
 
+  /**
+   * 换一份页面表（例如切换语言后页面的默认标题变了）。已打开的实例**原样保留**，
+   * 只按新页面表重算各自的默认标题；页面发布的标题不受影响。
+   */
+  updatePages(pages: WorkspacePage[]): void {
+    this.options.pages = pages;
+    for (const instance of this.instances) {
+      const resolved = resolveRoute(pages, instance.location.href);
+      if (resolved) instance.defaultTitle = resolved.defaultTitle;
+    }
+    this.emit();
+  }
+
   private emit() {
     this.snapshot = { instances: [...this.instances], activeId: this.activeId };
     this.listeners.forEach((l) => l());

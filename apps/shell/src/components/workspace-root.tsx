@@ -12,7 +12,7 @@ import {
   type WorkspaceUiAdapter,
 } from "@neton/application-front-workspace";
 import { KitNavigationProvider, PortalHostProvider } from "@neton/application-front-kit";
-import { useT } from "@neton/application-front-runtime/i18n";
+import { useIsDefaultLocale, useLookupAcross, useT } from "@neton/application-front-runtime/i18n";
 import { buildRouteMap } from "@neton/application-front-runtime/menu";
 import type { PermissionInfo } from "@neton/application-front-runtime/types";
 import { installedModules, pageRegistry } from "@/generated/modules.generated";
@@ -55,10 +55,28 @@ export function WorkspaceRoot({ info, nav }: { info: PermissionInfo; nav: NavIte
     reload: t("workspace.reload"),
     confirmCloseDirty: (title) => t("workspace.confirmCloseDirty", { title }),
   }), [t]);
+  // 非默认语言：菜单名与页签标题取各模块词条里的 `menu.<页面 key>` / `menu.<菜单路径>` / `title.<页面 key>`。
+  // 默认语言直接用后端菜单名 —— 运营在后台改过的名字照样生效。
+  const isDefaultLocale = useIsDefaultLocale();
+  const lookup = useLookupAcross(React.useMemo(() => installedModules.map((m) => m.id), []));
+  const routeMap = React.useMemo(() => buildRouteMap(info.menus), [info.menus]);
+  const translateMenu = React.useCallback((path: string, name: string) => {
+    if (isDefaultLocale) return name;
+    const key = routeMap[path];
+    return (key && lookup(`menu.${key}`)) || lookup(`menu.${path}`) || name;
+  }, [isDefaultLocale, lookup, routeMap]);
+  const translatedNav = React.useMemo(() => {
+    const walk = (items: NavItem[]): NavItem[] => items.map((item) => ({
+      ...item,
+      name: translateMenu(item.path, item.name),
+      children: item.children ? walk(item.children) : undefined,
+    }));
+    return walk(nav);
+  }, [nav, translateMenu]);
+
   const pages = React.useMemo(() => {
     // 菜单名是列表/配置类页面最准确的页签标题（运营改菜单名，页签跟着变）。
     const titles: Record<string, string> = {};
-    const routeMap = buildRouteMap(info.menus);
     const nameByKey = new Map<string, string>();
     const walk = (nodes: PermissionInfo["menus"]) => {
       for (const node of nodes) {
@@ -69,10 +87,14 @@ export function WorkspaceRoot({ info, nav }: { info: PermissionInfo; nav: NavIte
     walk(info.menus);
     for (const [path, key] of Object.entries(routeMap)) {
       const name = nameByKey.get(key);
-      if (name) titles[path] = name;
+      if (name) titles[path] = translateMenu(path, name);
     }
-    return [homePage(homeTitle), ...buildWorkspacePages(installedModules, pageRegistry, titles)];
-  }, [info.menus, homeTitle]);
+    const modules = isDefaultLocale ? installedModules : installedModules.map((m) => ({
+      ...m,
+      pages: m.pages.map((p) => (p.title ? { ...p, title: lookup(`title.${p.key}`) ?? p.title } : p)),
+    }));
+    return [homePage(homeTitle), ...buildWorkspacePages(modules, pageRegistry, titles)];
+  }, [info.menus, homeTitle, routeMap, translateMenu, isDefaultLocale, lookup]);
 
   const [store] = React.useState(() => new WorkspaceStore({
     pages,
@@ -87,12 +109,14 @@ export function WorkspaceRoot({ info, nav }: { info: PermissionInfo; nav: NavIte
     store.start();
     return () => store.stop();
   }, [store]);
+  // 语言切换或词条加载完成后页面表会变：已打开的页签原样保留，只更新默认标题（不丢未保存内容）。
+  React.useEffect(() => { store.updatePages(pages); }, [store, pages]);
 
   return (
     <WorkspaceStoreProvider store={store}>
       <WorkspaceLabelsProvider labels={labels}>
       <AppShell
-        items={nav}
+        items={translatedNav}
         user={info.user}
         roles={info.roles}
         permissions={info.permissions}

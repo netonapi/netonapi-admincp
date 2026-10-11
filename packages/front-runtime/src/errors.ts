@@ -12,7 +12,11 @@ import { useT } from "./i18n";
  */
 export function useDescribeError(): (error: unknown) => string {
   const t = useT("errors");
+  // 引用保持稳定：调用方常把它放进 effect 依赖，词条陆续加载时不能因此重复请求。
+  const latest = React.useRef(t);
+  latest.current = t;
   return React.useCallback((error: unknown) => {
+    const t = latest.current;
     if (error instanceof ApiError) {
       const code = error.machineCode;
       if (code && t.has(`code.${code}`)) return t(`code.${code}`);
@@ -26,5 +30,5 @@ export function useDescribeError(): (error: unknown) => string {
       return t(`kind.${error.kind}`);
     }
     return t("kind.business");
-  }, [t]);
+  }, []);
 }

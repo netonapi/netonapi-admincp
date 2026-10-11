@@ -203,6 +203,29 @@ export function useT(namespace: string): Translate {
   }, [s, namespace]);
 }
 
+/**
+ * 跨多个命名空间查找同一个 key，返回第一个命中的模板（已代入参数），都没有返回 undefined。
+ * 宿主用它翻译菜单与页签标题：菜单属于哪个模块事先不知道。会确保这些命名空间都已加载。
+ */
+export function useLookupAcross(namespaces: readonly string[]): (key: string, params?: Record<string, unknown>) => string | undefined {
+  const s = useI18nState();
+  const key = namespaces.join("|");
+  React.useEffect(() => { for (const ns of namespaces) s.ensureNamespace(ns); }, [s, key]); // eslint-disable-line react-hooks/exhaustive-deps
+  return React.useCallback((k: string, params?: Record<string, unknown>) => {
+    for (const ns of namespaces) {
+      const template = s.lookup(ns, k);
+      if (template !== undefined) return formatMessage(template, params, s.locale);
+    }
+    return undefined;
+  }, [s, key]); // eslint-disable-line react-hooks/exhaustive-deps
+}
+
+/** 当前是否为默认语言（默认语言下菜单直接用后端配置的名称，运营改的名字照样生效）。 */
+export function useIsDefaultLocale(): boolean {
+  const s = useI18nState();
+  return s.locale === s.config.defaultLocale;
+}
+
 // ---------------------------------------------------------------------------
 // 格式化
 
