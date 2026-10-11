@@ -1,0 +1,9 @@
+# 由 scripts/ci/update-dependency-lock.sh 生成，勿手改。格式：<仓库> <路径> <提交号>
+neton-application/neton-application-front-system     Neton/neton-application-front-system                 f799640b1a1f715acb669cb515b032d5c9ffe11e
+neton-application/neton-application-front-infra      Neton/neton-application-front-infra                  7996fa16fd77a07bfe38eda779c927bae52d8428
+neton-application/neton-application-front-account    Neton/neton-application-front-account                40fca79c8691a381d96894b41646b5f2e9be7745
+neton-application/neton-application-front-member     Neton/neton-application-front-member                 0723327b5d25c148c4cfd97997baa95e1f0db39f
+neton-application/neton-application-front-privchat   Neton/neton-application-front-privchat               16d2bfe81b3dc84df1d8ca2445dabdcd2c84f3a7
+neton-application/neton-application-front-payment    Neton/neton-application-front-payment                c552721a9b6b1877b44c66434b43d4d9993f4c0f
+neton-application/neton-application-front-platform   Neton/neton-application-front-platform               fc4437996473ec35650eedd741f1e4d288ba1375
+neton-application/neton-application-front-cs         Neton/neton-application-front-cs                     a6f6275041e1c1a1cf8c069c1eb154c37dcae366

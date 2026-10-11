@@ -1,0 +1,70 @@
+name: Front CI
+
+# 干净环境构建门禁（评审 R11/R20）：
+# - 工作区布局与本地开发一致（projects/Neton/*），模块仓库按 scripts/ci/dependencies.lock
+#   精确到提交号检出，不依赖「当时的 main」。
+# - 依赖按 pnpm-lock.yaml 冻结安装；语言包检查 + 类型检查 + 单测 + 生产构建。
+# - 供应链：生产依赖的高危漏洞审计，并为每次构建产出 CycloneDX SBOM。
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+      - master
+
+env:
+  NETON_CI_TOKEN: ${{ secrets.NETON_CI_TOKEN }}
+  NEXT_TELEMETRY_DISABLED: "1"
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: Neton/neton-application-front
+    steps:
+      - name: Checkout front
+        uses: actions/checkout@v4
+        with:
+          path: Neton/neton-application-front
+
+      - name: Checkout locked modules
+        working-directory: ${{ github.workspace }}
+        run: Neton/neton-application-front/scripts/ci/checkout-dependencies.sh "$GITHUB_WORKSPACE"
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: latest
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+          cache-dependency-path: Neton/neton-application-front/pnpm-lock.yaml
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      - name: Typecheck (registry + locales + tsc)
+        run: pnpm typecheck
+
+      - name: Unit tests
+        run: pnpm test
+
+      - name: Production build
+        run: pnpm build
+
+      - name: Audit production dependencies
+        run: pnpm audit --prod --audit-level high
+
+      - name: Generate SBOM
+        uses: anchore/sbom-action@v0
+        with:
+          path: Neton/neton-application-front
+          format: cyclonedx-json
+          output-file: neton-application-front.cdx.json
+          artifact-name: neton-application-front-sbom

@@ -1,0 +1,12 @@
+# 干净环境构建本前端发行版所需的模块仓库（评审 R11/R20）。
+# 格式：<GitHub 仓库> <相对于工作区根目录的路径>
+# 路径必须与本地开发布局一致：apps/shell/package.json 的 file: 依赖按这个布局写相对路径。
+# 由 update-dependency-lock.sh 根据本机兄弟仓库的远端分支头生成 dependencies.lock（追加提交号）。
+neton-application/neton-application-front-system   Neton/neton-application-front-system
+neton-application/neton-application-front-infra    Neton/neton-application-front-infra
+neton-application/neton-application-front-account  Neton/neton-application-front-account
+neton-application/neton-application-front-member   Neton/neton-application-front-member
+neton-application/neton-application-front-privchat Neton/neton-application-front-privchat
+neton-application/neton-application-front-payment  Neton/neton-application-front-payment
+neton-application/neton-application-front-platform Neton/neton-application-front-platform
+neton-application/neton-application-front-cs       Neton/neton-application-front-cs
