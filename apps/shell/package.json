@@ -11,22 +11,22 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@neton/application-front-account": "file:../../../../Neton/neton-application-front-account",
     "@neton/application-front-contract": "file:../../../../Neton/neton-application-front/packages/front-contract",
     "@neton/application-front-gateway": "file:../../../../Neton/neton-application-front-gateway",
     "@neton/application-front-infra": "file:../../../../Neton/neton-application-front-infra",
     "@neton/application-front-kit": "file:../../../../Neton/neton-application-front/packages/front-kit",
-    "@neton/application-front-account": "file:../../../../Neton/neton-application-front-account",
     "@neton/application-front-member": "file:../../../../Neton/neton-application-front-member",
     "@neton/application-front-payment": "file:../../../../Neton/neton-application-front-payment",
     "@neton/application-front-resource": "file:../../../../Neton/neton-application-front/packages/front-resource",
     "@neton/application-front-runtime": "file:../../../../Neton/neton-application-front/packages/front-runtime",
     "@neton/application-front-system": "file:../../../../Neton/neton-application-front-system",
+    "@neton/application-front-workspace": "file:../../../../Neton/neton-application-front/packages/front-workspace",
     "@tanstack/react-query": "^5.0.0",
     "lucide-react": "^1.24.0",
-    "next": "^16.0.0",
+    "next": "^16.4.0",
     "react": "^19.2.0",
-    "react-dom": "^19.2.0",
-    "@neton/application-front-workspace": "file:../../../../Neton/neton-application-front/packages/front-workspace"
+    "react-dom": "^19.2.0"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4.0.0",
