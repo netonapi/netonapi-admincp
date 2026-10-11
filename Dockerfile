@@ -29,13 +29,16 @@ COPY Neton/neton-application-front/packages/front-runtime/src            /src/Ne
 COPY Neton/neton-application-front/packages/front-workspace/package.json /src/Neton/neton-application-front/packages/front-workspace/package.json
 COPY Neton/neton-application-front/packages/front-workspace/src          /src/Neton/neton-application-front/packages/front-workspace/src
 
-# ── canonical 管理台模块（六个）──
+# ── canonical 管理台模块（七个）──
 COPY Neton/neton-application-front-gateway/package.json  /src/Neton/neton-application-front-gateway/package.json
 COPY Neton/neton-application-front-gateway/tsconfig.json /src/Neton/neton-application-front-gateway/tsconfig.json
 COPY Neton/neton-application-front-gateway/src           /src/Neton/neton-application-front-gateway/src
 COPY Neton/neton-application-front-infra/package.json    /src/Neton/neton-application-front-infra/package.json
 COPY Neton/neton-application-front-infra/tsconfig.json   /src/Neton/neton-application-front-infra/tsconfig.json
 COPY Neton/neton-application-front-infra/src             /src/Neton/neton-application-front-infra/src
+COPY Neton/neton-application-front-account/package.json  /src/Neton/neton-application-front-account/package.json
+COPY Neton/neton-application-front-account/tsconfig.json /src/Neton/neton-application-front-account/tsconfig.json
+COPY Neton/neton-application-front-account/src           /src/Neton/neton-application-front-account/src
 COPY Neton/neton-application-front-member/package.json   /src/Neton/neton-application-front-member/package.json
 COPY Neton/neton-application-front-member/tsconfig.json  /src/Neton/neton-application-front-member/tsconfig.json
 COPY Neton/neton-application-front-member/src            /src/Neton/neton-application-front-member/src

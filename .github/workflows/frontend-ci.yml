@@ -55,6 +55,13 @@ jobs:
           token: ${{ env.NETON_CI_TOKEN }}
           path: Neton/neton-application-front-infra
 
+      - name: Checkout front-account pages
+        uses: actions/checkout@v4
+        with:
+          repository: neton-application/neton-application-front-account
+          token: ${{ env.NETON_CI_TOKEN }}
+          path: Neton/neton-application-front-account
+
       - name: Checkout front-member pages
         uses: actions/checkout@v4
         with:
