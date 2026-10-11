@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { isPermitted } from "./permission";
 import {
   QueryClient,
   QueryClientProvider,
@@ -27,13 +28,6 @@ export interface FrontClientContextValue {
 
 const FrontClientContext = React.createContext<FrontClientContextValue | null>(null);
 
-function permissionMatches(granted: string, expected: string): boolean {
-  if (granted === "*" || granted === "*:*:*" || granted === expected) return true;
-  const grantedParts = granted.split(":");
-  const expectedParts = expected.split(":");
-  return grantedParts.length === expectedParts.length
-    && grantedParts.every((part, index) => part === "*" || part === expectedParts[index]);
-}
 
 export function FrontClientProvider({
   children,
@@ -77,7 +71,7 @@ export function useSession(): FrontClientContextValue {
 export function usePermission(permission?: string): boolean {
   const { permissions } = useFrontClient();
   if (!permission) return true;
-  return permissions.some((granted) => permissionMatches(granted, permission));
+  return isPermitted(permissions, permission);
 }
 
 export { useMutation, useQuery, useQueryClient };

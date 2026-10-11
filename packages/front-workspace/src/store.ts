@@ -3,13 +3,16 @@ import type { WorkspaceHostAdapter, WorkspaceInstance, WorkspacePage, WorkspaceS
 
 const PERSIST_KEY = "neton-workspace";
 /** 结构变更时 +1：旧结构整份丢弃，不做迁移，避免复活出坏页签。 */
-const PERSIST_VERSION = 2;
+const PERSIST_VERSION = 3;
 
+/**
+ * 只存页签的地址与固定状态（评审 R19）。页面发布的标题**不存**：它常带着人名、单号等业务数据，
+ * 不该留在本机；恢复后先显示默认标题，页面加载完会重新发布。
+ */
 interface PersistedInstance {
   instanceId: string;
   href: string;
   pinned?: boolean;
-  publishedTitle?: string;
 }
 
 let seq = 0;
@@ -25,7 +28,11 @@ export interface WorkspaceStoreOptions {
   homeHref: string;
   /** 首页页签不可关闭。 */
   pinHome?: boolean;
-  persist?: boolean;
+  /**
+   * 记住打开的页签。[scope] 区分发行版身份域与用户（如 `admin:42`）：同一台电脑换人登录，
+   * 不能恢复出上一个人的页签。省略即不持久化。
+   */
+  persist?: { scope: string };
 }
 
 /**
@@ -236,16 +243,28 @@ export class WorkspaceStore {
   }
 
   // ── 持久化：只存可序列化的页签描述，不承诺恢复内存状态 ──
+  private persistKey(): string {
+    return `${PERSIST_KEY}:${this.options.persist?.scope ?? ""}`;
+  }
+
+  /** 退出登录时调用：清掉本机所有用户的页签记录（含旧版本留下的全站共用记录）。 */
+  static clearPersisted(): void {
+    if (typeof localStorage === "undefined") return;
+    for (let i = localStorage.length - 1; i >= 0; i--) {
+      const key = localStorage.key(i);
+      if (key === PERSIST_KEY || key?.startsWith(`${PERSIST_KEY}:`)) localStorage.removeItem(key);
+    }
+  }
+
   private persist() {
     if (!this.options.persist || typeof localStorage === "undefined") return;
     const payload: PersistedInstance[] = this.instances.map((i) => ({
       instanceId: i.instanceId,
       href: i.location.href,
       pinned: i.pinned,
-      publishedTitle: i.publishedTitle,
     }));
     try {
-      localStorage.setItem(PERSIST_KEY, JSON.stringify({ version: PERSIST_VERSION, instances: payload }));
+      localStorage.setItem(this.persistKey(), JSON.stringify({ version: PERSIST_VERSION, instances: payload }));
     } catch { /* 配额或隐私模式，放弃持久化不影响运行 */ }
   }
 
@@ -253,10 +272,10 @@ export class WorkspaceStore {
     if (typeof localStorage === "undefined") return;
     let parsed: { version?: number; instances?: PersistedInstance[] } | null = null;
     try {
-      parsed = JSON.parse(localStorage.getItem(PERSIST_KEY) ?? "null");
+      parsed = JSON.parse(localStorage.getItem(this.persistKey()) ?? "null");
     } catch { parsed = null; }
     if (!parsed || parsed.version !== PERSIST_VERSION || !Array.isArray(parsed.instances)) {
-      try { localStorage.removeItem(PERSIST_KEY); } catch { /* ignore */ }
+      try { localStorage.removeItem(this.persistKey()); } catch { /* ignore */ }
       return;
     }
     for (const item of parsed.instances) {
@@ -269,7 +288,6 @@ export class WorkspaceStore {
         pageKey: resolved.page.key,
         location: resolved.location,
         defaultTitle: resolved.defaultTitle,
-        publishedTitle: item.publishedTitle,
         pinned: item.pinned,
         createdAt: Date.now(),
         lastActiveAt: 0,

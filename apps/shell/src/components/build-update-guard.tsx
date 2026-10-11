@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { useT } from "@neton/application-front-runtime/i18n";
 
 const CHECK_INTERVAL_MS = 30_000;
 
@@ -25,6 +26,7 @@ async function fetchBuildVersion(signal?: AbortSignal): Promise<string | null> {
  * 新发行版后阻止继续操作，避免旧页面引用已被替换的模块资源而永久停在加载态。
  */
 export function BuildUpdateGuard() {
+  const t = useT("shell");
   const initialVersion = React.useRef<string | null>(null);
   const checking = React.useRef(false);
   const [updateAvailable, setUpdateAvailable] = React.useState(false);
@@ -72,9 +74,9 @@ export function BuildUpdateGuard() {
         aria-describedby="system-update-description"
         className="w-full max-w-sm rounded-2xl border border-[var(--border)] bg-[var(--card)] p-6 text-[var(--foreground)] shadow-2xl"
       >
-        <div id="system-update-title" className="text-lg font-semibold">系统功能更新完成</div>
+        <div id="system-update-title" className="text-lg font-semibold">{t("update.title")}</div>
         <p id="system-update-description" className="mt-2 text-sm leading-6 text-[var(--muted-foreground)]">
-          请点击确定后重新加载页面。
+          {t("update.body")}
         </p>
         <button
           type="button"
@@ -82,7 +84,7 @@ export function BuildUpdateGuard() {
           className="mt-6 h-10 w-full rounded-lg bg-[var(--primary)] px-4 text-sm font-semibold text-[var(--primary-foreground)] outline-none transition-opacity hover:opacity-90 focus-visible:ring-2 focus-visible:ring-[var(--ring)] focus-visible:ring-offset-2"
           onClick={() => window.location.reload()}
         >
-          确定并重新加载
+          {t("update.reload")}
         </button>
       </div>
     </div>

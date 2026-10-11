@@ -6,6 +6,8 @@ import { cn } from "../cn";
 import { Alert } from "./alert";
 import { Button } from "./button";
 import { Portal } from "./portal";
+import { useKitLabels } from "./labels";
+import { useModalFocus } from "./modal-focus";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "./dropdown-menu";
 import { SelectContent, SelectItem, SelectRoot, SelectTrigger, SelectValue } from "./select";
 import { Table, TBody, TD, TH, THead, TR } from "./table";
@@ -152,8 +154,8 @@ export interface DataColumn<T> {
 
 export function DataTable<T>({
   columns,
-  emptyDescription = "请调整查询条件后重试",
-  emptyTitle = "没有匹配的数据",
+  emptyDescription,
+  emptyTitle,
   error,
   loading,
   minWidth = 900,
@@ -169,6 +171,9 @@ export function DataTable<T>({
   rowKey: (row: T) => React.Key;
   rows: T[];
 }) {
+  const labels = useKitLabels();
+  emptyTitle ??= labels.emptyTitle;
+  emptyDescription ??= labels.emptyDescription;
   return (
     <>
       {error && <div className="p-5"><Alert tone="error">{error}</Alert></div>}
@@ -215,6 +220,7 @@ export function Pagination({
   pageSize: number;
   total: number;
 }) {
+  const labels = useKitLabels();
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
   const [jump, setJump] = React.useState(String(page));
   React.useEffect(() => setJump(String(page)), [page]);
@@ -223,22 +229,20 @@ export function Pagination({
   return (
     <div className="flex flex-wrap items-center justify-between gap-3 border-t border-[var(--border)] bg-[var(--card)] px-5 py-3.5">
       <div className="flex shrink-0 items-center gap-3 whitespace-nowrap text-xs text-[var(--muted-foreground)]">
-        <span>共 <strong className="text-[var(--foreground)]">{total}</strong> 条</span>
+        <span>{labels.total(labels.formatNumber(total))}</span>
         <Select value={pageSize} onChange={(event) => onPageSizeChange(Number(event.target.value))} className="h-8 w-auto text-xs">
-          <option value="10">10 条/页</option>
-          <option value="20">20 条/页</option>
-          <option value="50">50 条/页</option>
+          {[10, 20, 50].map((size) => <option key={size} value={size}>{labels.perPage(size)}</option>)}
         </Select>
       </div>
       <div className="flex flex-wrap items-center justify-end gap-1.5">
-        <Button variant="outline" size="sm" onClick={() => !loading && page > 1 && onPageChange(page - 1)}><ChevronLeftIcon aria-hidden="true" className="h-3.5 w-3.5" />上一页</Button>
+        <Button variant="outline" size="sm" onClick={() => !loading && page > 1 && onPageChange(page - 1)}><ChevronLeftIcon aria-hidden="true" className="h-3.5 w-3.5" />{labels.previous}</Button>
         {pages.map((value, index) => <React.Fragment key={value}>
           {index > 0 && value - pages[index - 1] > 1 && <span className="px-1 text-xs text-[var(--muted-foreground)]">…</span>}
           <Button variant={value === page ? "default" : "outline"} size="sm" className="min-w-8 px-2" onClick={() => !loading && onPageChange(value)}>{value}</Button>
         </React.Fragment>)}
-        <Button variant="outline" size="sm" onClick={() => !loading && page < totalPages && onPageChange(page + 1)}>下一页<ChevronRightIcon aria-hidden="true" className="h-3.5 w-3.5" /></Button>
+        <Button variant="outline" size="sm" onClick={() => !loading && page < totalPages && onPageChange(page + 1)}>{labels.next}<ChevronRightIcon aria-hidden="true" className="h-3.5 w-3.5" /></Button>
         {totalPages > 5 && <form className="ml-1 flex items-center gap-1.5 whitespace-nowrap text-xs text-[var(--muted-foreground)]" onSubmit={(event) => { event.preventDefault(); if (loading) return; const value = Math.min(totalPages, Math.max(1, Number(jump) || 1)); setJump(String(value)); onPageChange(value); }}>
-          <span>前往</span><input aria-label="页码" className="h-8 w-14 rounded-md border border-[var(--input)] bg-[var(--card)] px-2 text-center text-xs text-[var(--foreground)] shadow-[var(--shadow-xs)] outline-none focus-visible:border-[var(--ring)] focus-visible:ring-[3px] focus-visible:ring-[var(--ring)]/20 dark:bg-[var(--input)]/20" inputMode="numeric" value={jump} onChange={(event) => setJump(event.target.value.replace(/\D/g, ""))} /><span>页</span>
+          <span>{labels.goTo}</span><input aria-label={labels.pageNumber} className="h-8 w-14 rounded-md border border-[var(--input)] bg-[var(--card)] px-2 text-center text-xs text-[var(--foreground)] shadow-[var(--shadow-xs)] outline-none focus-visible:border-[var(--ring)] focus-visible:ring-[3px] focus-visible:ring-[var(--ring)]/20 dark:bg-[var(--input)]/20" inputMode="numeric" value={jump} onChange={(event) => setJump(event.target.value.replace(/\D/g, ""))} /><span>{labels.pageSuffix}</span>
         </form>}
       </div>
     </div>
@@ -280,25 +284,27 @@ function inferActionIcon(action: RowAction): FrontIcon | undefined {
   // Transitional fallback keeps existing modules visually consistent while
   // callers migrate to explicit semantic kinds.
   const label = action.label;
-  if (/删除|移除/.test(label)) return DeleteIcon;
-  if (/编辑|修改/.test(label)) return EditIcon;
-  if (/新增|创建|添加/.test(label)) return PlusIcon;
-  if (/查看|详情/.test(label)) return ViewIcon;
-  if (/记录|列表|成员|设备|好友|群组/.test(label)) return ListIcon;
-  if (/重置密码|密钥|密码/.test(label)) return KeyIcon;
-  if (/分配|授权|角色/.test(label)) return AssignIcon;
-  if (/配置|设置/.test(label)) return SettingsIcon;
-  if (/重试/.test(label)) return RetryIcon;
-  if (/刷新/.test(label)) return RefreshIcon;
-  if (/复制/.test(label)) return CopyIcon;
-  if (/导出|下载/.test(label)) return DownloadIcon;
-  if (/导入|上传/.test(label)) return UploadIcon;
-  if (/启用|上线/.test(label)) return PowerIcon;
-  if (/停用|禁用|封禁|下线/.test(label)) return BanIcon;
+  // 中英文关键字都认：按钮文案翻译后图标不能消失。
+  if (/删除|移除|delete|remove/i.test(label)) return DeleteIcon;
+  if (/编辑|修改|edit|modify/i.test(label)) return EditIcon;
+  if (/新增|创建|添加|add|create|new/i.test(label)) return PlusIcon;
+  if (/查看|详情|view|detail/i.test(label)) return ViewIcon;
+  if (/记录|列表|成员|设备|好友|群组|records?|list|members?|devices?|friends?|groups?/i.test(label)) return ListIcon;
+  if (/重置密码|密钥|密码|password|secret|key/i.test(label)) return KeyIcon;
+  if (/分配|授权|角色|assign|grant|roles?/i.test(label)) return AssignIcon;
+  if (/配置|设置|config|settings?/i.test(label)) return SettingsIcon;
+  if (/重试|retry/i.test(label)) return RetryIcon;
+  if (/刷新|refresh/i.test(label)) return RefreshIcon;
+  if (/复制|copy/i.test(label)) return CopyIcon;
+  if (/导出|下载|export|download/i.test(label)) return DownloadIcon;
+  if (/导入|上传|import|upload/i.test(label)) return UploadIcon;
+  if (/启用|上线|enable|activate/i.test(label)) return PowerIcon;
+  if (/停用|禁用|封禁|下线|disable|ban|deactivate/i.test(label)) return BanIcon;
   return undefined;
 }
 
 export function RowActions({ primary, more = [] }: { primary: RowAction[]; more?: RowAction[] }) {
+  const labels = useKitLabels();
   function actionNode(action: RowAction, compact = false) {
     const tone = action.danger ? "danger" : action.tone ?? "neutral";
     const Icon = inferActionIcon(action);
@@ -320,7 +326,7 @@ export function RowActions({ primary, more = [] }: { primary: RowAction[]; more?
     {primary.slice(0, 2).map((action) => actionNode(action, true))}
     {more.length > 0 && <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <button type="button" aria-label="更多操作" title="更多操作" className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-[var(--border)] bg-[var(--card)] text-[var(--muted-foreground)] shadow-[var(--shadow-xs)] outline-none transition-colors hover:bg-[var(--muted)] hover:text-[var(--foreground)] focus-visible:border-[var(--ring)] focus-visible:ring-[3px] focus-visible:ring-[var(--ring)]/20 dark:bg-[var(--input)]/20">
+        <button type="button" aria-label={labels.moreActions} title={labels.moreActions} className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-[var(--border)] bg-[var(--card)] text-[var(--muted-foreground)] shadow-[var(--shadow-xs)] outline-none transition-colors hover:bg-[var(--muted)] hover:text-[var(--foreground)] focus-visible:border-[var(--ring)] focus-visible:ring-[3px] focus-visible:ring-[var(--ring)]/20 dark:bg-[var(--input)]/20">
           <MoreHorizontalIcon aria-hidden="true" className="h-4 w-4" strokeWidth={1.9} />
         </button>
       </DropdownMenuTrigger>
@@ -372,32 +378,26 @@ export function Drawer({
   title: string;
   widthClassName?: string;
 }) {
-  React.useEffect(() => {
-    if (!open) return;
-    const previousOverflow = document.body.style.overflow;
-    const closeOnEscape = (event: KeyboardEvent) => event.key === "Escape" && onClose();
-    document.body.style.overflow = "hidden";
-    window.addEventListener("keydown", closeOnEscape);
-    return () => {
-      document.body.style.overflow = previousOverflow;
-      window.removeEventListener("keydown", closeOnEscape);
-    };
-  }, [onClose, open]);
+  const labels = useKitLabels();
+  const panelRef = React.useRef<HTMLElement>(null);
+  const titleId = React.useId();
+  useModalFocus(panelRef, open, onClose);
 
   if (!open) return null;
   return (
     <Portal>
       <div className="fixed inset-0 z-[100] flex justify-end bg-[#09090b]/30 backdrop-blur-sm" onMouseDown={onClose}>
         <aside
+          ref={panelRef}
           role="dialog"
           aria-modal="true"
-          aria-label={title}
+          aria-labelledby={titleId}
           onMouseDown={(event) => event.stopPropagation()}
           className={cn("flex h-full w-full flex-col border-l border-[var(--border)] bg-[var(--background)] shadow-[-24px_0_70px_rgba(0,0,0,0.2)]", widthClassName)}
         >
           <div className="flex items-center justify-between border-b border-[var(--border)] bg-[var(--card)] px-5 py-4">
-            <div><h2 className="text-lg font-bold text-[var(--foreground)]">{title}</h2>{description && <p className="mt-1 text-xs text-[var(--muted-foreground)]">{description}</p>}</div>
-            <button type="button" onClick={onClose} aria-label={`关闭${title}`} className="flex h-9 w-9 items-center justify-center rounded-md border border-[var(--border)] text-lg text-[var(--muted-foreground)] transition hover:bg-[var(--muted)]">×</button>
+            <div><h2 id={titleId} className="text-lg font-bold text-[var(--foreground)]">{title}</h2>{description && <p className="mt-1 text-xs text-[var(--muted-foreground)]">{description}</p>}</div>
+            <button type="button" onClick={onClose} aria-label={labels.close(title)} className="flex h-9 w-9 items-center justify-center rounded-md border border-[var(--border)] text-lg text-[var(--muted-foreground)] transition hover:bg-[var(--muted)]">×</button>
           </div>
           <div className="min-h-0 flex-1 overflow-y-auto p-5">{children}</div>
           {footer && <div className="flex justify-end gap-2 border-t border-[var(--border)] bg-[var(--card)] px-5 py-4">{footer}</div>}
@@ -408,7 +408,7 @@ export function Drawer({
 }
 
 export function ConfirmDialog({
-  confirmLabel = "确认",
+  confirmLabel,
   description,
   onCancel,
   onConfirm,
@@ -424,16 +424,22 @@ export function ConfirmDialog({
   pending?: boolean;
   title: string;
 }) {
+  const labels = useKitLabels();
+  const dialogRef = React.useRef<HTMLDivElement>(null);
+  const titleId = React.useId();
+  const descriptionId = React.useId();
+  // 破坏性确认：初始焦点放在「取消」上，回车不会误触执行。
+  useModalFocus(dialogRef, open, () => { if (!pending) onCancel(); });
   if (!open) return null;
   return (
     <Portal>
       <div className="fixed inset-0 z-[110] flex items-center justify-center bg-[#09090b]/35 px-4 backdrop-blur-sm" onMouseDown={onCancel}>
-        <div role="alertdialog" aria-modal="true" aria-label={title} onMouseDown={(event) => event.stopPropagation()} className="w-full max-w-md rounded-xl border border-[var(--border)] bg-[var(--card)] p-5 shadow-[0_24px_80px_rgba(20,45,37,0.22)]">
-          <h2 className="text-lg font-bold text-[var(--foreground)]">{title}</h2>
-          <p className="mt-2 text-sm leading-6 text-[var(--muted-foreground)]">{description}</p>
+        <div ref={dialogRef} role="alertdialog" aria-modal="true" aria-labelledby={titleId} aria-describedby={descriptionId} onMouseDown={(event) => event.stopPropagation()} className="w-full max-w-md rounded-xl border border-[var(--border)] bg-[var(--card)] p-5 shadow-[0_24px_80px_rgba(20,45,37,0.22)]">
+          <h2 id={titleId} className="text-lg font-bold text-[var(--foreground)]">{title}</h2>
+          <p id={descriptionId} className="mt-2 text-sm leading-6 text-[var(--muted-foreground)]">{description}</p>
           <div className="mt-6 flex justify-end gap-2">
-            <Button variant="ghost" onClick={onCancel} disabled={pending}>取消</Button>
-            <Button variant="destructive" onClick={onConfirm} disabled={pending}>{pending ? "处理中…" : confirmLabel}</Button>
+            <Button variant="ghost" onClick={onCancel} disabled={pending} data-autofocus>{labels.cancel}</Button>
+            <Button variant="destructive" onClick={onConfirm} disabled={pending}>{pending ? labels.processing : confirmLabel ?? labels.confirm}</Button>
           </div>
         </div>
       </div>

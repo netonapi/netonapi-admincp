@@ -9,7 +9,13 @@
     "./client": "./src/client.ts",
     "./client-context": "./src/client-context.tsx",
     "./menu": "./src/menu.ts",
-    "./types": "./src/types.ts"
+    "./types": "./src/types.ts",
+    "./i18n": "./src/i18n.tsx",
+    "./errors": "./src/errors.ts",
+    "./messages": "./src/messages.ts",
+    "./brand": "./src/brand.ts",
+    "./health": "./src/health.ts",
+    "./permission": "./src/permission.ts"
   },
   "peerDependencies": {
     "@tanstack/react-query": "^5.0.0",
@@ -21,5 +27,8 @@
     "@types/react": "^19.0.0",
     "react": "^19.2.0",
     "typescript": "^5.7.0"
+  },
+  "scripts": {
+    "test": "node --experimental-strip-types --test src/*.test.mts"
   }
 }

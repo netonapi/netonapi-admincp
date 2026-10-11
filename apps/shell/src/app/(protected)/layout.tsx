@@ -1,9 +1,10 @@
 "use client";
 
 import * as React from "react";
-import { fetchSession } from "@neton/application-front-runtime/client";
+import { fetchSession, type SessionResult } from "@neton/application-front-runtime/client";
+import { useDescribeError } from "@neton/application-front-runtime/errors";
+import { useT } from "@neton/application-front-runtime/i18n";
 import { buildNav } from "@neton/application-front-runtime/menu";
-import type { PermissionInfo } from "@neton/application-front-runtime/types";
 import { WorkspaceRoot } from "@/components/workspace-root";
 
 /**
@@ -12,32 +13,51 @@ import { WorkspaceRoot } from "@/components/workspace-root";
  * 会话守卫在客户端：凭据是后端下发的 HttpOnly Cookie，前端读不到也不需要读，
  * 「有没有登录」由 `fetchSession()` 的结果回答，而不是靠本地有没有 token 猜。
  *
- * 这里刻意不做服务端渲染的重定向 —— 管理后台不需要 SSR，而放弃它换来的是三个
- * 发行版共用同一份 shell（静态导出宿主没有 server component 可以在渲染前读
- * Cookie）。将来面向终端用户、真的需要 SSR 的应用另说，那是另一套宿主。
+ * 只有明确的「未登录」才回登录页（评审 R15）。后端不可达、代理返回 5xx 是暂时的，
+ * 显示可重试的错误 —— 不能因为一次网络抖动把正在工作的人踢出去。
  *
+ * 这里刻意不做服务端渲染的重定向：管理后台不需要 SSR，三个发行版共用同一份静态宿主。
  * 布局跨路由不卸载，工作区根挂在这里，页面实例的寿命才不受宿主路由影响；
  * `children` 被刻意忽略，内容一律由工作区宿主渲染。
  */
 export default function ProtectedLayout() {
-  const [info, setInfo] = React.useState<PermissionInfo | null>(null);
+  const t = useT("runtime");
+  const describeError = useDescribeError();
+  const [session, setSession] = React.useState<SessionResult | null>(null);
 
-  React.useEffect(() => {
+  const check = React.useCallback(() => {
+    setSession(null);
     fetchSession().then((res) => {
-      if (res.code !== 0 || !res.data) {
+      if (res.state === "anonymous") {
         window.location.href = "/login";
         return;
       }
-      setInfo(res.data);
+      setSession(res);
     });
   }, []);
+  React.useEffect(check, [check]);
 
-  if (!info) {
+  if (session?.state === "authenticated") {
+    return <WorkspaceRoot info={session.info} nav={buildNav(session.info.menus)} />;
+  }
+  if (session?.state === "unavailable") {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-[var(--background)] text-sm text-[var(--muted-foreground)]">
-        正在验证会话…
+      <div role="alert" className="flex min-h-screen flex-col items-center justify-center gap-3 bg-[var(--background)] px-6 text-center text-sm">
+        <div className="font-semibold text-[var(--foreground)]">{t("session.unavailable")}</div>
+        <div className="text-xs text-[var(--muted-foreground)]">{describeError(session.error)}</div>
+        {session.error.details.requestId && (
+          <div className="text-[11px] text-[var(--muted-foreground)]">{t("error.requestId", { id: session.error.details.requestId })}</div>
+        )}
+        <div className="mt-2 flex gap-2">
+          <button type="button" onClick={check} className="rounded-lg border border-[var(--border)] px-3 py-1.5 text-xs font-semibold">{t("session.retry")}</button>
+          <a href="/login" className="rounded-lg px-3 py-1.5 text-xs text-[var(--muted-foreground)]">{t("session.backToLogin")}</a>
+        </div>
       </div>
     );
   }
-  return <WorkspaceRoot info={info} nav={buildNav(info.menus)} />;
+  return (
+    <div role="status" className="flex min-h-screen items-center justify-center bg-[var(--background)] text-sm text-[var(--muted-foreground)]">
+      {t("session.checking")}
+    </div>
+  );
 }

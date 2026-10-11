@@ -14,6 +14,6 @@ export {
   type WorkspaceNavigation,
 } from "./context";
 export { buildWorkspacePages, type PageLoaderRegistry, type WorkspaceModuleManifest } from "./pages";
-export { WorkspaceHost, useCloseGuard, type WorkspaceUiAdapter } from "./host";
+export { WorkspaceHost, WorkspaceLabelsProvider, useCloseGuard, defaultWorkspaceLabels, type WorkspaceUiAdapter, type WorkspaceLabels } from "./host";
 export { WorkspaceLink, useWorkspaceLinkDelegation, type WorkspaceLinkProps } from "./link";
 export { createBrowserHistoryHost } from "./host-history";

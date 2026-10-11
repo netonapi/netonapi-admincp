@@ -4,7 +4,9 @@ import * as React from "react";
 import { apiFetch, apiWrite } from "@neton/application-front-runtime/client";
 import { useMutation, usePermission, useQuery, useQueryClient } from "@neton/application-front-runtime/client-context";
 import type { PageResponse } from "@neton/application-front-runtime/types";
-import { formatDateTime } from "@neton/application-front-runtime/types";
+import { formatDateTime, formatMoney } from "@neton/application-front-runtime/types";
+import { useDescribeError } from "@neton/application-front-runtime/errors";
+import { useT, type Translate } from "@neton/application-front-runtime/i18n";
 import {
   Button, ConfirmDialog, DataTable, Drawer, Field, FilterPanel, Input, PageHeader,
   Pagination, RowActions, Select, StatusBadge, Textarea, type DataColumn, type RowAction,
@@ -63,16 +65,19 @@ function makeEmpty(fields: ResourceField[]): ResourceRecord {
   return Object.fromEntries([["id", 0], ...fields.map((field) => [field.key, field.defaultValue ?? ""])]) as ResourceRecord;
 }
 
-function renderCell(field: ResourceField, row: ResourceRecord) {
+function renderCell(field: ResourceField, row: ResourceRecord, t: Translate) {
   const value = row[field.key];
-  if (field.format === "status") return <StatusBadge active={Number(value) === 1}>{Number(value) === 1 ? "启用" : "停用"}</StatusBadge>;
+  if (field.format === "status") return <StatusBadge active={Number(value) === 1}>{Number(value) === 1 ? t("enabled") : t("disabled")}</StatusBadge>;
   if (field.format === "date") return formatDateTime(value as string | number | null);
-  if (field.format === "money") return <span className="tabular-nums">¥{(Number(value ?? 0) / 100).toLocaleString("zh-CN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>;
+  // 金额是最小货币单位（分）；记录上带了币种字段就用它，否则用部署默认币种。
+  if (field.format === "money") return <span className="tabular-nums">{formatMoney(value as number, typeof row.currency === "string" ? row.currency : undefined)}</span>;
   if (field.format === "mono") return <code className="text-xs">{String(value ?? "-")}</code>;
   return value === null || value === undefined || value === "" ? <span className="text-[var(--muted-foreground)]">-</span> : String(value);
 }
 
 export function ResourcePage({ config }: { config: ResourcePageConfig }) {
+  const t = useT("resource");
+  const describeError = useDescribeError();
   const queryClient = useQueryClient();
   const canCreate = usePermission(config.permissions.create);
   const canUpdate = usePermission(config.permissions.update);
@@ -110,7 +115,7 @@ export function ResourcePage({ config }: { config: ResourcePageConfig }) {
       return apiWrite<void>(`/admin${config.endpoint}/${record.id ? "update" : "create"}`, record.id ? "PUT" : "POST", body);
     },
     onSuccess: async () => { setForm(null); await queryClient.invalidateQueries({ queryKey: [config.resourceKey] }); },
-    onError: (cause: Error) => setError(cause.message),
+    onError: (cause: Error) => setError(describeError(cause)),
   });
   const remove = useMutation({
     mutationFn: (record: ResourceRecord) => apiWrite<void>(`/admin${config.endpoint}/delete/${record.id}`, "DELETE"),
@@ -119,14 +124,14 @@ export function ResourcePage({ config }: { config: ResourcePageConfig }) {
 
   const tableFields = config.fields.filter((field) => field.table !== false && !field.filter);
   const columns: DataColumn<ResourceRecord>[] = [
-    ...tableFields.map((field): DataColumn<ResourceRecord> => ({ key: field.key, header: field.label, cell: (row) => renderCell(field, row) })),
+    ...tableFields.map((field): DataColumn<ResourceRecord> => ({ key: field.key, header: field.label, cell: (row) => renderCell(field, row, t) })),
     ...((Boolean(config.detailFields) || Boolean(config.rowActions) || (!config.readOnly && (canUpdate || canDelete))) ? [{
-      key: "actions", header: "操作", headerClassName: "text-right", className: "text-right",
+      key: "actions", header: t("actions"), headerClassName: "text-right", className: "text-right",
       cell: (row: ResourceRecord) => <RowActions primary={[
         ...(config.rowActions?.(row).primary ?? []),
-        ...(config.detailFields ? [{ label: "详情", onClick: async () => { setDetailLoading(true); setError(null); try { setViewing(await apiFetch<ResourceRecord>(`/admin${config.endpoint}/${config.detailPath?.(row) ?? `get/${row.id}`}`)); } catch (cause) { setError((cause as Error).message); setViewing(row); } finally { setDetailLoading(false); } } }] : []),
-        ...(!config.readOnly && canUpdate ? [{ label: "编辑", tone: "primary" as const, onClick: () => { setError(null); setForm({ ...row }); } }] : []),
-      ]} more={[...(config.rowActions?.(row).more ?? []), ...(!config.readOnly && canDelete ? [{ label: "删除", danger: true, onClick: () => setDeleting(row) }] : [])]} />,
+        ...(config.detailFields ? [{ label: t("view"), kind: "view" as const, onClick: async () => { setDetailLoading(true); setError(null); try { setViewing(await apiFetch<ResourceRecord>(`/admin${config.endpoint}/${config.detailPath?.(row) ?? `get/${row.id}`}`)); } catch (cause) { setError(describeError(cause)); setViewing(row); } finally { setDetailLoading(false); } } }] : []),
+        ...(!config.readOnly && canUpdate ? [{ label: t("edit"), kind: "edit" as const, tone: "primary" as const, onClick: () => { setError(null); setForm({ ...row }); } }] : []),
+      ]} more={[...(config.rowActions?.(row).more ?? []), ...(!config.readOnly && canDelete ? [{ label: t("delete"), kind: "delete" as const, danger: true, onClick: () => setDeleting(row) }] : [])]} />,
     } satisfies DataColumn<ResourceRecord>] : []),
   ];
 
@@ -134,7 +139,7 @@ export function ResourcePage({ config }: { config: ResourcePageConfig }) {
     event.preventDefault();
     if (!form) return;
     const missing = config.fields.find((field) => field.required && String(form[field.key] ?? "").trim() === "");
-    if (missing) { setError(`请填写${missing.label}`); return; }
+    if (missing) { setError(t("required", { field: missing.label })); return; }
     setError(null);
     save.mutate(form);
   }
@@ -142,23 +147,23 @@ export function ResourcePage({ config }: { config: ResourcePageConfig }) {
   return <div className="space-y-4">
     <PageHeader eyebrow={config.eyebrow} title={config.title} description={config.description} actions={<>
       {config.headerActions}
-      {!config.readOnly && canCreate && <Button onClick={() => { setError(null); setForm(makeEmpty(config.fields)); }}>新增</Button>}
-      <Button variant="outline" onClick={() => query.refetch()} disabled={query.isFetching}>刷新</Button>
+      {!config.readOnly && canCreate && <Button onClick={() => { setError(null); setForm(makeEmpty(config.fields)); }}>{t("create")}</Button>}
+      <Button variant="outline" onClick={() => query.refetch()} disabled={query.isFetching}>{t("refresh")}</Button>
     </>} />
     {filterFields.length > 0 && <FilterPanel onSubmit={(event) => { event.preventDefault(); setPage(1); setFilters({ ...draft }); }}>
       <div className="flex flex-wrap items-end gap-3">
         {filterFields.map((field) => <div key={field.key} className="min-w-48 flex-1"><Field label={field.label}>
-          {field.type === "select" ? <Select value={draft[field.key]} onChange={(event) => setDraft({ ...draft, [field.key]: event.target.value })}><option value="">全部</option>{field.options?.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</Select> : <Input value={draft[field.key]} placeholder={field.placeholder} onChange={(event) => setDraft({ ...draft, [field.key]: event.target.value })} />}
+          {field.type === "select" ? <Select value={draft[field.key]} onChange={(event) => setDraft({ ...draft, [field.key]: event.target.value })}><option value="">{t("all")}</option>{field.options?.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</Select> : <Input value={draft[field.key]} placeholder={field.placeholder} onChange={(event) => setDraft({ ...draft, [field.key]: event.target.value })} />}
         </Field></div>)}
-        <Button type="button" variant="ghost" onClick={() => { const next = Object.fromEntries(filterFields.map((field) => [field.key, ""])); setDraft(next); setFilters(next); setPage(1); }}>重置</Button>
-        <Button type="submit">查询</Button>
+        <Button type="button" variant="ghost" onClick={() => { const next = Object.fromEntries(filterFields.map((field) => [field.key, ""])); setDraft(next); setFilters(next); setPage(1); }}>{t("reset")}</Button>
+        <Button type="submit">{t("search")}</Button>
       </div>
     </FilterPanel>}
     <section className="front-surface overflow-hidden rounded-xl">
-      <DataTable columns={columns} rows={query.data?.list ?? []} rowKey={(row) => row.id} loading={query.isPending} error={query.error?.message} />
+      <DataTable columns={columns} rows={query.data?.list ?? []} rowKey={(row) => row.id} loading={query.isPending} error={query.error ? describeError(query.error) : null} />
       <Pagination page={page} pageSize={pageSize} total={query.data?.total ?? 0} loading={query.isFetching} onPageChange={setPage} onPageSizeChange={(size) => { setPageSize(size); setPage(1); }} />
     </section>
-    <Drawer open={Boolean(form)} onClose={() => setForm(null)} title={`${form?.id ? "编辑" : "新增"}${config.title}`} footer={<><Button variant="ghost" onClick={() => setForm(null)}>取消</Button><Button type="submit" form={`${config.resourceKey}-form`} disabled={save.isPending}>保存</Button></>}>
+    <Drawer open={Boolean(form)} onClose={() => setForm(null)} title={t(form?.id ? "editTitle" : "createTitle", { title: config.title })} footer={<><Button variant="ghost" onClick={() => setForm(null)}>{t("cancel")}</Button><Button type="submit" form={`${config.resourceKey}-form`} disabled={save.isPending}>{t("save")}</Button></>}>
       {form && <form id={`${config.resourceKey}-form`} className="space-y-4" onSubmit={submit}>
         {error && <div className="rounded-lg bg-red-50 p-3 text-xs text-red-700">{error}</div>}
         {config.fields.filter((field) => !field.filter && field.editable !== false && field.format !== "date" && field.key !== "id").map((field) => <Field key={field.key} label={field.label}>
@@ -168,9 +173,9 @@ export function ResourcePage({ config }: { config: ResourcePageConfig }) {
         </Field>)}
       </form>}
     </Drawer>
-    <Drawer open={Boolean(viewing)} onClose={() => setViewing(null)} title={`${config.title}详情`} description={detailLoading ? "正在加载详情…" : `记录 ID ${viewing?.id ?? ""}`} widthClassName="max-w-2xl">
-      {viewing && <dl className="overflow-hidden rounded-xl border border-[var(--border)]">{(config.detailFields ?? []).map((field) => <div key={field.key} className="grid grid-cols-[120px_minmax(0,1fr)] gap-4 border-b border-[var(--border)] p-3 last:border-0"><dt className="text-xs font-semibold text-[var(--muted-foreground)]">{field.label}</dt><dd className="break-all text-sm text-[var(--foreground)]">{renderCell(field, viewing)}</dd></div>)}</dl>}
+    <Drawer open={Boolean(viewing)} onClose={() => setViewing(null)} title={t("detailTitle", { title: config.title })} description={detailLoading ? t("loadingDetail") : t("recordId", { id: viewing?.id ?? "" })} widthClassName="max-w-2xl">
+      {viewing && <dl className="overflow-hidden rounded-xl border border-[var(--border)]">{(config.detailFields ?? []).map((field) => <div key={field.key} className="grid grid-cols-[120px_minmax(0,1fr)] gap-4 border-b border-[var(--border)] p-3 last:border-0"><dt className="text-xs font-semibold text-[var(--muted-foreground)]">{field.label}</dt><dd className="break-all text-sm text-[var(--foreground)]">{renderCell(field, viewing, t)}</dd></div>)}</dl>}
     </Drawer>
-    <ConfirmDialog open={Boolean(deleting)} title={`删除${config.title}`} description="删除后不可恢复，请确认该数据未被其他业务引用。" confirmLabel="确认删除" pending={remove.isPending} onCancel={() => setDeleting(null)} onConfirm={() => deleting && remove.mutate(deleting)} />
+    <ConfirmDialog open={Boolean(deleting)} title={t("deleteTitle", { title: config.title })} description={t("deleteDescription")} confirmLabel={t("deleteConfirm")} pending={remove.isPending} onCancel={() => setDeleting(null)} onConfirm={() => deleting && remove.mutate(deleting)} />
   </div>;
 }

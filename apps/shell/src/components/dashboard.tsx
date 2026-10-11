@@ -3,6 +3,7 @@
 import { WorkspaceLink } from "@neton/application-front-workspace";
 import { AppWindow, ArrowUpRight, Boxes, KeyRound, Menu as MenuIcon, ShieldCheck, Sparkles, UsersRound } from "lucide-react";
 import { useSession } from "@neton/application-front-runtime/client-context";
+import { useFormat, useT } from "@neton/application-front-runtime/i18n";
 import { buildNav, type NavItem } from "@neton/application-front-runtime/menu";
 import { installedModules } from "@/generated/modules.generated";
 
@@ -12,15 +13,17 @@ function leafItems(items: NavItem[]): NavItem[] {
 
 export default function Dashboard() {
   const info = useSession();
+  const t = useT("shell");
+  const fmt = useFormat();
   const nav = buildNav(info.menus);
   const pages = leafItems(nav);
   const hour = new Date().getHours();
-  const greeting = hour < 6 ? "夜深了" : hour < 12 ? "早上好" : hour < 18 ? "下午好" : "晚上好";
+  const greeting = t(hour < 6 ? "dashboard.greetingNight" : hour < 12 ? "dashboard.greetingMorning" : hour < 18 ? "dashboard.greetingAfternoon" : "dashboard.greetingEvening");
   const stats = [
-    { label: "已安装模块", value: installedModules.length, note: "构建期装配", icon: Boxes, color: "bg-[var(--primary-soft)] text-[var(--primary)]" },
-    { label: "可访问页面", value: pages.length, note: "后端菜单授权", icon: MenuIcon, color: "bg-[var(--primary-soft)] text-[var(--primary)]" },
-    { label: "当前角色", value: info.roles.length, note: info.roles[0] || "未分配角色", icon: UsersRound, color: "bg-[var(--primary-soft)] text-[var(--primary)]" },
-    { label: "权限点", value: info.permissions.length, note: "实时权限快照", icon: KeyRound, color: "bg-[var(--primary-soft)] text-[var(--primary)]" },
+    { label: t("dashboard.modules"), value: installedModules.length, note: t("dashboard.modulesNote"), icon: Boxes, color: "bg-[var(--primary-soft)] text-[var(--primary)]" },
+    { label: t("dashboard.pages"), value: pages.length, note: t("dashboard.pagesNote"), icon: MenuIcon, color: "bg-[var(--primary-soft)] text-[var(--primary)]" },
+    { label: t("dashboard.roles"), value: info.roles.length, note: info.roles[0] || t("dashboard.noRole"), icon: UsersRound, color: "bg-[var(--primary-soft)] text-[var(--primary)]" },
+    { label: t("dashboard.permissions"), value: info.permissions.length, note: t("dashboard.permissionsNote"), icon: KeyRound, color: "bg-[var(--primary-soft)] text-[var(--primary)]" },
   ];
 
   return (
@@ -31,14 +34,14 @@ export default function Dashboard() {
         <div className="relative flex flex-col gap-7 md:flex-row md:items-end md:justify-between">
           <div>
             <span className="inline-flex items-center gap-2 rounded-full border border-[var(--border)] bg-[var(--muted)] px-3 py-1.5 text-[10px] font-semibold tracking-[0.14em] text-[var(--primary)]">
-              <Sparkles size={12} /> OPERATIONS OVERVIEW
+              <Sparkles size={12} /> {t("nav.home")}
             </span>
-            <h1 className="mt-5 text-2xl font-semibold tracking-[-0.03em] text-[var(--foreground)] md:text-3xl">{greeting}，{info.user.nickname || info.user.username}</h1>
-            <p className="mt-3 max-w-xl text-sm leading-6 text-[var(--muted-foreground)]">菜单、权限和模块已经就绪。您可以从侧栏或顶部搜索快速进入业务页面。</p>
+            <h1 className="mt-5 text-2xl font-semibold tracking-[-0.03em] text-[var(--foreground)] md:text-3xl">{greeting}, {info.user.nickname || info.user.username}</h1>
+            <p className="mt-3 max-w-xl text-sm leading-6 text-[var(--muted-foreground)]">{t("dashboard.ready")}</p>
           </div>
           <div className="flex items-center gap-3 rounded-xl border border-[var(--border)] bg-[var(--muted)] px-4 py-3">
             <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-[var(--primary-soft)] text-[var(--primary)]"><ShieldCheck size={19} /></span>
-            <span><span className="block text-xs font-semibold text-[var(--foreground)]">安全会话有效</span><span className="mt-0.5 block text-[11px] text-[var(--muted-foreground)]">HttpOnly · Backend verified</span></span>
+            <span className="block text-xs font-semibold text-[var(--foreground)]">{t("dashboard.sessionValid")}</span>
           </div>
         </div>
       </section>
@@ -50,7 +53,7 @@ export default function Dashboard() {
               <span className="text-xs font-semibold text-[var(--muted-foreground)]">{label}</span>
               <span className={`flex h-9 w-9 items-center justify-center rounded-lg ${color}`}><Icon size={17} /></span>
             </div>
-            <div className="mt-5 text-2xl font-semibold tracking-[-0.025em] text-[var(--foreground)]">{value}</div>
+            <div className="mt-5 text-2xl font-semibold tracking-[-0.025em] text-[var(--foreground)]">{fmt.number(value)}</div>
             <div className="mt-2 text-xs text-[var(--muted-foreground)]">{note}</div>
           </article>
         ))}
@@ -59,8 +62,8 @@ export default function Dashboard() {
       <section className="grid gap-5 xl:grid-cols-[1.35fr_0.65fr]">
         <div className="front-surface rounded-xl p-5 md:p-6">
           <div className="flex items-center justify-between">
-            <div><h2 className="text-base font-bold text-[var(--foreground)]">快捷入口</h2><p className="mt-1 text-xs text-[var(--muted-foreground)]">根据当前后端菜单动态生成</p></div>
-            <span className="rounded-full bg-[var(--primary-soft)] px-2.5 py-1 text-xs font-bold text-[var(--primary)]">{pages.length} PAGES</span>
+            <div><h2 className="text-base font-bold text-[var(--foreground)]">{t("dashboard.shortcuts")}</h2><p className="mt-1 text-xs text-[var(--muted-foreground)]">{t("dashboard.shortcutsNote")}</p></div>
+            <span className="rounded-full bg-[var(--primary-soft)] px-2.5 py-1 text-xs font-bold text-[var(--primary)]">{fmt.number(pages.length)}</span>
           </div>
           <div className="mt-5 grid gap-3 sm:grid-cols-2">
             {pages.slice(0, 6).map((page, index) => (
@@ -74,8 +77,8 @@ export default function Dashboard() {
         </div>
 
         <div className="rounded-xl border border-[var(--border)] bg-[var(--surface-sunken)] p-5 shadow-[inset_0_1px_0_rgba(255,255,255,.35)] md:p-6">
-          <h2 className="text-base font-bold text-[var(--foreground)]">发行版信息</h2>
-          <p className="mt-1 text-xs text-[var(--muted-foreground)]">当前构建加载的前端模块</p>
+          <h2 className="text-base font-bold text-[var(--foreground)]">{t("dashboard.distribution")}</h2>
+          <p className="mt-1 text-xs text-[var(--muted-foreground)]">{t("dashboard.distributionNote")}</p>
           <div className="mt-5 space-y-3">
             {installedModules.map((module) => (
               <div key={module.id} className="flex items-center gap-3 rounded-xl border border-[var(--border)] bg-[var(--card)] px-4 py-3">
@@ -87,7 +90,7 @@ export default function Dashboard() {
           </div>
           <div className="mt-5 flex items-start gap-3 rounded-xl bg-[var(--primary-soft)] p-4 text-xs leading-5 text-[var(--muted-foreground)]">
             <ShieldCheck size={16} className="mt-0.5 shrink-0 text-[var(--primary)]" />
-            页面可见性由服务端权限决定，前端注册表只负责解析已安装页面。
+            {t("dashboard.visibility")}
           </div>
         </div>
       </section>

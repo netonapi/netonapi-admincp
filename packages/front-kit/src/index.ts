@@ -11,3 +11,5 @@ export * from "./components/alert";
 export * from "./components/portal";
 export * from "./components/nav";
 export * from "./components/admin";
+export * from "./components/labels";
+export { useModalFocus } from "./components/modal-focus";
