@@ -3,6 +3,7 @@ import * as React from "react";
 import { apiFetch } from "@neton/application-front-runtime/client";
 import { useQuery } from "@neton/application-front-runtime/client-context";
 import { Alert, Button, Card, CardContent, CardHeader, CardTitle, DataTable, PageHeader, StatusBadge, type DataColumn } from "@neton/application-front-kit";
+import { useDescribeError } from "@neton/application-front-runtime/errors";
 
 interface PeriodStat { requests: number; errors: number; charged: number; cost: number; promptTokens: number; completionTokens: number; activeUsers: number }
 interface DailyStat { date: string; requests: number; errors: number; charged: number; cost: number }
@@ -57,6 +58,7 @@ function Stat({ label, value, hint }: { label: string; value: React.ReactNode; h
 const CHANNEL_STATUS: Record<number, string> = { 1: "启用", 0: "禁用", 2: "自动挂起" };
 
 export default function Page() {
+  const describeError = useDescribeError("gateway");
   const [days, setDays] = React.useState(7);
   const query = useQuery({ queryKey: ["gateway-overview", days], queryFn: () => apiFetch<Overview>(`/admin/gateway/info/overview?days=${days}`), refetchInterval: 60_000 });
   const d = query.data;
@@ -96,7 +98,7 @@ export default function Page() {
     <div>
       <PageHeader eyebrow="GATEWAY" title="网关概览" description="请求、收入、成本与毛利；数据来自用量日志，按 UTC 日切，每分钟自动刷新。"
         actions={<div style={{ display: "flex", gap: 6 }}>{[1, 7, 30].map((n) => <Button key={n} variant={days === n ? "default" : "outline"} onClick={() => setDays(n)}>{n === 1 ? "今天" : `${n} 天`}</Button>)}</div>} />
-      {query.error ? <Alert tone="error">{(query.error as Error).message}</Alert> : null}
+      {query.error ? <Alert tone="error">{describeError(query.error)}</Alert> : null}
       {d && (d.manualReviewSettlements > 0 || d.suspendedChannels > 0) ? (
         <Alert tone="warning" style={{ marginTop: 12 }}>
           需要处理：{d.manualReviewSettlements > 0 ? `${d.manualReviewSettlements} 笔结算待人工裁定（仍占用用户预留额度）` : null}

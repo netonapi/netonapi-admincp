@@ -5,6 +5,7 @@ import {
   Button, DataTable, Field, Input, PageHeader,
   type DataColumn,
 } from "@neton/application-front-kit";
+import { useDescribeError } from "@neton/application-front-runtime/errors";
 
 interface Settlement {
   id: number; settlementId: string; userId: number; tokenId: number;
@@ -22,6 +23,7 @@ interface TickResponse {
  * 无法判断上游是否已计费，所以既不自动扣款也不自动退款，必须人工裁定。
  */
 export default function Page() {
+  const describeError = useDescribeError("gateway");
   const [rows, setRows] = React.useState<Settlement[]>([]);
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
@@ -32,7 +34,7 @@ export default function Page() {
     setLoading(true); setError(null);
     try {
       setRows(await apiFetch<Settlement[]>("/admin/gateway/settlement/manual-review"));
-    } catch (cause) { setError((cause as Error).message); } finally { setLoading(false); }
+    } catch (cause) { setError(describeError(cause)); } finally { setLoading(false); }
   }, []);
 
   React.useEffect(() => { void load(); }, [load]);
@@ -42,7 +44,7 @@ export default function Page() {
     try {
       setTick(await apiWrite<TickResponse>("/admin/gateway/settlement/tick", "POST", {}));
       void load();
-    } catch (cause) { setError((cause as Error).message); }
+    } catch (cause) { setError(describeError(cause)); }
   }
 
   async function find() {
@@ -51,7 +53,7 @@ export default function Page() {
     try {
       const one = await apiFetch<Settlement | null>(`/admin/gateway/settlement/get/${lookup.trim()}`);
       setRows(one ? [one] : []);
-    } catch (cause) { setError((cause as Error).message); }
+    } catch (cause) { setError(describeError(cause)); }
   }
 
   const columns: DataColumn<Settlement>[] = [

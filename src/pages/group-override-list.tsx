@@ -8,6 +8,7 @@ import {
   Button, ConfirmDialog, DataTable, Drawer, Field, Input, PageHeader, RowActions, Select, Textarea,
   type DataColumn, type RowAction,
 } from "@neton/application-front-kit";
+import { useDescribeError } from "@neton/application-front-runtime/errors";
 
 interface OverrideVO {
   userId: number; groupCode: string; remark?: string | null;
@@ -31,6 +32,7 @@ const EMPTY: FormState = { editing: false, userId: "", groupCode: "", remark: ""
  *   把整页打挂。后端对悬空 code 有 400 守卫，所以文本输入也不会写坏数据。
  */
 export default function Page() {
+  const describeError = useDescribeError("gateway");
   const canCreate = usePermission("gateway:group-override:create");
   const canUpdate = usePermission("gateway:group-override:update");
   const canDelete = usePermission("gateway:group-override:delete");
@@ -46,7 +48,7 @@ export default function Page() {
     setLoading(true); setError(null);
     try {
       setRows(await apiFetch<OverrideVO[]>("/admin/gateway/group-override/list"));
-    } catch (cause) { setError((cause as Error).message); } finally { setLoading(false); }
+    } catch (cause) { setError(describeError(cause)); } finally { setLoading(false); }
     try {
       setGroups(await apiFetch<GroupVO[]>("/admin/gateway/group/list"));
     } catch { setGroups([]); }
@@ -67,7 +69,7 @@ export default function Page() {
       await apiWrite<unknown>(`/admin/gateway/group-override/${form.editing ? "update" : "create"}`, form.editing ? "PUT" : "POST", body);
       setForm(null);
       await load();
-    } catch (cause) { setError((cause as Error).message); } finally { setSaving(false); }
+    } catch (cause) { setError(describeError(cause)); } finally { setSaving(false); }
   }
 
   async function revoke(row: OverrideVO) {
@@ -75,7 +77,7 @@ export default function Page() {
       await apiWrite<unknown>(`/admin/gateway/group-override/delete/${row.userId}`, "DELETE");
       setRevoking(null);
       await load();
-    } catch (cause) { setError((cause as Error).message); setRevoking(null); }
+    } catch (cause) { setError(describeError(cause)); setRevoking(null); }
   }
 
   const actions = (row: OverrideVO): RowAction[] => [

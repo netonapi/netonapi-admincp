@@ -10,6 +10,7 @@ import {
   Pagination, RowActions, Select, StatusBadge, Textarea,
   type DataColumn, type RowAction,
 } from "@neton/application-front-kit";
+import { useDescribeError } from "@neton/application-front-runtime/errors";
 
 interface CodeVO {
   id: number; code: string; quotaMicro: number; status: number; statusText: string;
@@ -42,11 +43,11 @@ const EMPTY_GEN = { quotaMicro: "", count: "1", expiresAt: "", note: "" };
  *   是成立的，gateway:redemption:list 可以交给只读审计角色。首尾两组留着是因为客服要能拿
  *   客户电话里念的码对上库里哪一行，客户不会报 id。代价是运营弄丢了生成时那份导出就找不
  *   回来，处置与 API 令牌同纪律：整批作废 + 重新生成，不找回。
- * - 批次可能**半失败**：logic 逐张插入，中途失败会把已插入的留下并抛 500，消息里带批次号。
- *   apiWrite 抛的就是后端 message，所以那句话会原样显示给运营，据此按批次号回查即可，
- *   不需要前端猜哪些成功了。
+ * - 批次可能**半失败**：logic 逐张插入，中途失败会把已插入的留下并抛 500（服务端日志带批次号）。
+ *   列表按创建倒序，已入库的那部分连同批次号就在最上面，运营据此整批作废后重新生成即可。
  */
 export default function Page() {
+  const describeError = useDescribeError("gateway");
   const canCreate = usePermission("gateway:redemption:create");
   const canGet = usePermission("gateway:redemption:query");
   const canDisable = usePermission("gateway:redemption:disable");
@@ -79,7 +80,7 @@ export default function Page() {
       if (f.status !== "") params.set("status", f.status);
       const data = await apiFetch<PageResponse<CodeVO>>(`/admin/gateway/redemption/page?${params}`);
       setRows(data.list); setTotal(data.total);
-    } catch (cause) { setError((cause as Error).message); } finally { setLoading(false); }
+    } catch (cause) { setError(describeError(cause)); } finally { setLoading(false); }
   }, []);
 
   React.useEffect(() => { void load(page, pageSize, filters); }, [load, page, pageSize, filters]);
@@ -104,13 +105,13 @@ export default function Page() {
       // 落到刚生成的那一批上：运营接下来要做的第一件事就是核对这批。
       const next = { batchId: vo.batchId, status: "" };
       setDraft(next); setFilters(next); setPage(1);
-    } catch (cause) { setError((cause as Error).message); } finally { setSaving(false); }
+    } catch (cause) { setError(describeError(cause)); } finally { setSaving(false); }
   }
 
   async function openStats(batchId: string) {
     setError(null);
     try { setStats(await apiFetch<StatsVO>(`/admin/gateway/redemption/stats/${encodeURIComponent(batchId)}`)); }
-    catch (cause) { setError((cause as Error).message); }
+    catch (cause) { setError(describeError(cause)); }
   }
 
   async function disableOne(row: CodeVO) {
@@ -118,7 +119,7 @@ export default function Page() {
       await apiWrite<CodeVO>(`/admin/gateway/redemption/disable/${row.id}`, "POST");
       setRevoking(null);
       await load(page, pageSize, filters);
-    } catch (cause) { setError((cause as Error).message); setRevoking(null); }
+    } catch (cause) { setError(describeError(cause)); setRevoking(null); }
   }
 
   async function disableBatch() {
@@ -132,7 +133,7 @@ export default function Page() {
       const next = { batchId: vo.batchId, status: "" };
       setDraft(next); setFilters(next); setPage(1);
       setNotice(`批次 ${vo.batchId} 整批作废完成：本次作废 ${vo.disabled} 张（0 表示这批本来就没有未使用的码）。`);
-    } catch (cause) { setError((cause as Error).message); setBatchStop(false); }
+    } catch (cause) { setError(describeError(cause)); setBatchStop(false); }
   }
 
   const actions = (row: CodeVO): RowAction[] => [

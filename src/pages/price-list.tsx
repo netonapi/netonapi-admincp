@@ -4,6 +4,7 @@ import { ResourcePage } from "@neton/application-front-resource";
 import { apiWrite } from "@neton/application-front-runtime/client";
 import { useQueryClient } from "@neton/application-front-runtime/client-context";
 import { Alert, Button, Drawer, Field, Textarea } from "@neton/application-front-kit";
+import { useDescribeError } from "@neton/application-front-runtime/errors";
 
 interface ImportItem { model: string; inputPrice: string; outputPrice: string; cacheReadPrice?: string; cacheWritePrice?: string; defaultMaxOutputTokens?: number }
 interface ImportResult { created: number; updated: number; skipped: number; errors: string[] }
@@ -39,6 +40,7 @@ export function parsePriceSheet(text: string): ImportItem[] {
 }
 
 export default function Page() {
+  const describeError = useDescribeError("gateway");
   const queryClient = useQueryClient();
   const [open, setOpen] = React.useState(false);
   const [text, setText] = React.useState("");
@@ -47,13 +49,13 @@ export default function Page() {
   const [error, setError] = React.useState<string | null>(null);
   const [result, setResult] = React.useState<ImportResult | null>(null);
 
-  /** 立即从 NEWGATE_PRICE_SYNC_URL 拉一次（定时任务每天也会拉）。没配 URL 后端会说清楚。 */
+  /** 立即从 NEWGATE_PRICE_SYNC_URL 拉一次（定时任务每天也会拉）。没配 URL 后端回 PRICE_SYNC_NOT_CONFIGURED。 */
   async function syncNow() {
     try {
       const r = await apiWrite<ImportResult>("/admin/gateway/price/sync", "POST", {});
       window.alert(r.errors.length ? `同步失败：\n${r.errors.join("\n")}` : `同步完成：新增 ${r.created}，更新 ${r.updated}，跳过 ${r.skipped}`);
       await queryClient.invalidateQueries({ queryKey: ["gateway-price"] });
-    } catch (cause) { window.alert(`同步失败：${(cause as Error).message}`); }
+    } catch (cause) { window.alert(`同步失败：${describeError(cause)}`); }
   }
 
   async function submit() {
@@ -66,11 +68,11 @@ export default function Page() {
       const r = await apiWrite<ImportResult>("/admin/gateway/price/import", "POST", { items, overwrite });
       setResult(r);
       if (r.errors.length === 0) { await queryClient.invalidateQueries({ queryKey: ["gateway-price"] }); }
-    } catch (cause) { setError((cause as Error).message); } finally { setBusy(false); }
+    } catch (cause) { setError(describeError(cause)); } finally { setBusy(false); }
   }
 
   return <>
-    <ResourcePage config={{ resourceKey: "gateway-price", eyebrow: "GATEWAY", title: "模型定价", description: "官方价（USD/1M tokens）与售价覆盖；变更即时生效。", endpoint: "/gateway/price", listPath: "list", permissions: { page: "gateway:price:query", create: "gateway:price:create", update: "gateway:price:update", delete: "gateway:price:delete" },
+    <ResourcePage config={{ resourceKey: "gateway-price", eyebrow: "GATEWAY", title: "模型定价", description: "官方价（USD/1M tokens）与售价覆盖；变更即时生效。", endpoint: "/gateway/price", errorNamespace: "gateway", listPath: "list", permissions: { page: "gateway:price:query", create: "gateway:price:create", update: "gateway:price:update", delete: "gateway:price:delete" },
       headerActions: <div style={{ display: "flex", gap: 8 }}>
         <Button variant="outline" onClick={() => { setOpen(true); setResult(null); setError(null); }}>批量导入</Button>
         <Button variant="outline" onClick={() => void syncNow()}>同步价源</Button>

@@ -3,6 +3,7 @@ import { defineFrontModule } from "@neton/application-front-contract";
 export default defineFrontModule({
   id: "gateway",
   contractVersion: "1.0.0",
+  locales: [{ lang: "zh-CN", entry: "zh-CN" }, { lang: "en-US", entry: "en-US" }],
   pages: [
     { key: "gateway/overview/index", path: "/gateway/overview", entry: "overview", rendering: "client" },
     { key: "gateway/channel/index", path: "/gateway/channel", entry: "channel-list", rendering: "client" },

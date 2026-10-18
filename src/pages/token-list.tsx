@@ -7,6 +7,7 @@ import {
   Button, DataTable, Drawer, Field, Input, PageHeader, RowActions, StatusBadge,
   type DataColumn, type RowAction,
 } from "@neton/application-front-kit";
+import { useDescribeError } from "@neton/application-front-runtime/errors";
 
 interface TokenVO {
   id: number; userId: number; name: string; display: string;
@@ -19,6 +20,7 @@ interface IssuedTokenVO { id: number; key: string; display: string }
 
 /** 令牌管理：创建后明文只展示一次（后端仅存哈希）。 */
 export default function Page() {
+  const describeError = useDescribeError("gateway");
   const [userId, setUserId] = React.useState("1");
   const [rows, setRows] = React.useState<TokenVO[]>([]);
   const [loading, setLoading] = React.useState(false);
@@ -32,7 +34,7 @@ export default function Page() {
     setLoading(true); setError(null);
     try {
       setRows(await apiFetch<TokenVO[]>(`/admin/gateway/token/list-by-user/${userId}`));
-    } catch (cause) { setError((cause as Error).message); } finally { setLoading(false); }
+    } catch (cause) { setError(describeError(cause)); } finally { setLoading(false); }
   }, [userId]);
 
   React.useEffect(() => { void load(); }, [load]);
@@ -49,7 +51,7 @@ export default function Page() {
       const vo = await apiWrite<IssuedTokenVO>(`/admin/gateway/token/create`, "POST", body);
       setIssued(vo); setCreating(false); setForm({ name: "", quotaBudget: "", rpmLimit: "", tpmLimit: "", concurrencyLimit: "" });
       void load();
-    } catch (cause) { setError((cause as Error).message); }
+    } catch (cause) { setError(describeError(cause)); }
   }
 
   async function setStatus(row: TokenVO, status: number) {

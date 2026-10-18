@@ -9,6 +9,7 @@ import {
   Alert, Button, Card, CardContent, CardHeader, CardTitle, ConfirmDialog, DataTable, Field, Input,
   type DataColumn,
 } from "@neton/application-front-kit";
+import { useDescribeError } from "@neton/application-front-runtime/errors";
 
 interface AccountVO {
   userId: number; balance: number; reservedBalance: number; version: number;
@@ -63,6 +64,7 @@ function AmountField({ value, onChange }: { value: string; onChange: (v: string)
  * 手写重造只会引入回归，而这三个权限此前在管理台里根本没有入口（运营只能 curl）。
  */
 function QuotaOps() {
+  const describeError = useDescribeError("gateway");
   const canRead = usePermission("gateway:quota:query");
   const canGrant = usePermission("gateway:quota:grant");
   const canRevoke = usePermission("gateway:quota:revoke");
@@ -99,7 +101,7 @@ function QuotaOps() {
         setTxs([]);
       }
     } catch (cause) {
-      setError((cause as Error).message); setAccount(null); setTxs([]);
+      setError(describeError(cause)); setAccount(null); setTxs([]);
     } finally { setLoading(false); }
   }
 
@@ -120,7 +122,7 @@ function QuotaOps() {
       }
       setOp(null); setAmount(""); setRef(""); setConfirming(false);
       await lookup(account.userId);
-    } catch (cause) { setError((cause as Error).message); } finally { setSaving(false); }
+    } catch (cause) { setError(describeError(cause)); } finally { setSaving(false); }
   }
 
   const txColumns: DataColumn<TxVO>[] = [
@@ -221,7 +223,7 @@ function QuotaOps() {
 
 export default function Page() {
   return <div className="space-y-4">
-    <ResourcePage config={{ resourceKey: "gateway-log", eyebrow: "GATEWAY", title: "用量日志", description: "逐请求用量与收入/成本（μUSD）。", endpoint: "/gateway/log", listPath: "page", permissions: { page: "gateway:log:query" }, fields: [
+    <ResourcePage config={{ resourceKey: "gateway-log", eyebrow: "GATEWAY", title: "用量日志", description: "逐请求用量与收入/成本（μUSD）。", endpoint: "/gateway/log", errorNamespace: "gateway", listPath: "page", permissions: { page: "gateway:log:query" }, fields: [
       { key: "userId", label: "用户", type: "number" },
       { key: "requestModel", label: "请求模型" },
       { key: "upstreamModel", label: "上游模型" },
