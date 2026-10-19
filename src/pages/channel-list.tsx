@@ -6,7 +6,13 @@ import { useQueryClient } from "@neton/application-front-runtime/client-context"
 import { useDescribeError } from "@neton/application-front-runtime/errors";
 import { useT, type Translate } from "@neton/application-front-runtime/i18n";
 
-interface ProbeResult { ok: boolean; status?: number | null; latencyMs: number; model: string; upstreamModel: string; upstreamPath: string; error?: string | null }
+interface ProbeResult { ok: boolean; status?: number | null; latencyMs: number; model: string; upstreamModel: string; upstreamPath: string; error?: string | null; errorCode?: string | null }
+
+/** 目标被出站策略拒绝时后端给机器码（errorCode），按 error.<CODE> 翻译；其余失败显示上游原话。 */
+function failureText(r: { error?: string | null; errorCode?: string | null }, t: Translate): string {
+  if (r.errorCode) return t.has(`error.${r.errorCode}`) ? t(`error.${r.errorCode}`) : r.errorCode;
+  return r.error ?? "—";
+}
 
 /**
  * 连通性探测：用渠道自己的协议/代理/Key 打一条最小请求（后端不计费、不记日志、不动 Key 状态）。
@@ -18,13 +24,13 @@ async function probe(id: number, name: string, describeError: (error: unknown) =
     const params = { name, status: r.status ?? t("channel.noResponse"), latencyMs: r.latencyMs, model: r.model, upstreamModel: r.upstreamModel, upstreamPath: r.upstreamPath };
     window.alert(r.ok
       ? t("channel.probe.ok", { ...params, status: String(r.status) })
-      : t("channel.probe.failed", { ...params, error: r.error ?? "—" }));
+      : t("channel.probe.failed", { ...params, error: failureText(r, t) }));
   } catch (cause) {
     window.alert(t("channel.probe.requestFailed", { error: describeError(cause) }));
   }
 }
 
-interface ModelsResult { ok: boolean; status?: number | null; models: string[]; error?: string | null }
+interface ModelsResult { ok: boolean; status?: number | null; models: string[]; error?: string | null; errorCode?: string | null }
 
 /**
  * 拉取上游模型清单并并入渠道的 models：新增的追加在后面，已有的保持原顺序。
@@ -35,7 +41,7 @@ async function pullModels(row: ResourceRecord, done: () => Promise<void>, descri
   const name = String(row.name ?? row.id);
   try {
     const r = await apiWrite<ModelsResult>(`/admin/gateway/channel/models/${row.id}`, "POST", {});
-    if (!r.ok) { window.alert(t("channel.pull.failed", { name, status: r.status ?? t("channel.noResponse"), error: r.error ?? "—" })); return; }
+    if (!r.ok) { window.alert(t("channel.pull.failed", { name, status: r.status ?? t("channel.noResponse"), error: failureText(r, t) })); return; }
     const current = String(row.models ?? "").split(",").map((m) => m.trim()).filter(Boolean);
     const fresh = r.models.filter((m) => !current.includes(m));
     if (fresh.length === 0) { window.alert(t("channel.pull.upToDate", { name, count: r.models.length })); return; }
