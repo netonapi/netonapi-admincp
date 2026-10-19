@@ -6,6 +6,7 @@ import {
   type DataColumn,
 } from "@neton/application-front-kit";
 import { useDescribeError } from "@neton/application-front-runtime/errors";
+import { useT } from "@neton/application-front-runtime/i18n";
 
 interface Settlement {
   id: number; settlementId: string; userId: number; tokenId: number;
@@ -24,6 +25,7 @@ interface TickResponse {
  */
 export default function Page() {
   const describeError = useDescribeError("gateway");
+  const t = useT("gateway");
   const [rows, setRows] = React.useState<Settlement[]>([]);
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
@@ -57,34 +59,33 @@ export default function Page() {
   }
 
   const columns: DataColumn<Settlement>[] = [
-    { key: "settlementId", header: "结算号", cell: (r) => r.settlementId },
-    { key: "userId", header: "用户", cell: (r) => r.userId },
-    { key: "requestModel", header: "模型", cell: (r) => r.requestModel },
-    { key: "status", header: "状态", cell: (r) => r.status },
-    { key: "retryAction", header: "当时动作", cell: (r) => r.retryAction ?? "-" },
-    { key: "reservedAmount", header: "占用预留 μUSD", cell: (r) => r.reservedAmount },
-    { key: "attempts", header: "尝试次数", cell: (r) => r.attempts },
-    { key: "lastError", header: "最后错误", cell: (r) => r.lastError ?? "-" },
+    { key: "settlementId", header: t("settlement.column.settlementId"), cell: (r) => r.settlementId },
+    { key: "userId", header: t("common.field.user"), cell: (r) => r.userId },
+    { key: "requestModel", header: t("common.field.model"), cell: (r) => r.requestModel },
+    { key: "status", header: t("common.field.status"), cell: (r) => r.status },
+    { key: "retryAction", header: t("settlement.column.retryAction"), cell: (r) => r.retryAction ?? "-" },
+    { key: "reservedAmount", header: t("settlement.column.reservedAmount"), cell: (r) => r.reservedAmount },
+    { key: "attempts", header: t("settlement.column.attempts"), cell: (r) => r.attempts },
+    { key: "lastError", header: t("settlement.column.lastError"), cell: (r) => r.lastError ?? "-" },
   ];
 
   return (
     <div>
       <PageHeader
-        eyebrow="GATEWAY"
-        title="结算待处理"
-        description="仍持有用户预留额度的结算：网关调用上游后失联，无法确定上游是否已计费，需人工裁定后再扣款或退款。"
+        eyebrow={t("common.eyebrow")}
+        title={t("settlement.title")}
+        description={t("settlement.description")}
       />
       {error ? <p role="alert">{error}</p> : null}
       <div style={{ display: "flex", gap: 8, alignItems: "flex-end", margin: "12px 0" }}>
-        <Button onClick={() => void runTick()}>立即执行恢复</Button>
-        <Button onClick={() => void load()}>刷新</Button>
-        <Field label="按结算号查询"><Input value={lookup} onChange={(e) => setLookup(e.target.value)} /></Field>
-        <Button onClick={() => void find()}>查询</Button>
+        <Button onClick={() => void runTick()}>{t("settlement.action.runTick")}</Button>
+        <Button onClick={() => void load()}>{t("common.action.refresh")}</Button>
+        <Field label={t("settlement.field.lookup")}><Input value={lookup} onChange={(e) => setLookup(e.target.value)} /></Field>
+        <Button onClick={() => void find()}>{t("common.action.search")}</Button>
       </div>
       {tick ? (
         <p>
-          本次恢复：取件 {tick.claimed}、结算 {tick.finalized}、释放 {tick.released}、
-          转人工 {tick.manualReview}、重试 {tick.retried}
+          {t("settlement.tick.summary", { claimed: tick.claimed, finalized: tick.finalized, released: tick.released, manualReview: tick.manualReview, retried: tick.retried })}
         </p>
       ) : null}
       <DataTable columns={columns} rows={rows} loading={loading} rowKey={(r) => r.settlementId} />

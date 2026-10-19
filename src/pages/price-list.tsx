@@ -5,6 +5,7 @@ import { apiWrite } from "@neton/application-front-runtime/client";
 import { useQueryClient } from "@neton/application-front-runtime/client-context";
 import { Alert, Button, Drawer, Field, Textarea } from "@neton/application-front-kit";
 import { useDescribeError } from "@neton/application-front-runtime/errors";
+import { useT } from "@neton/application-front-runtime/i18n";
 
 interface ImportItem { model: string; inputPrice: string; outputPrice: string; cacheReadPrice?: string; cacheWritePrice?: string; defaultMaxOutputTokens?: number }
 interface ImportResult { created: number; updated: number; skipped: number; errors: string[] }
@@ -41,6 +42,7 @@ export function parsePriceSheet(text: string): ImportItem[] {
 
 export default function Page() {
   const describeError = useDescribeError("gateway");
+  const t = useT("gateway");
   const queryClient = useQueryClient();
   const [open, setOpen] = React.useState(false);
   const [text, setText] = React.useState("");
@@ -53,16 +55,16 @@ export default function Page() {
   async function syncNow() {
     try {
       const r = await apiWrite<ImportResult>("/admin/gateway/price/sync", "POST", {});
-      window.alert(r.errors.length ? `同步失败：\n${r.errors.join("\n")}` : `同步完成：新增 ${r.created}，更新 ${r.updated}，跳过 ${r.skipped}`);
+      window.alert(r.errors.length ? t("price.sync.failedList", { errors: r.errors.join("\n") }) : t("price.sync.done", { created: r.created, updated: r.updated, skipped: r.skipped }));
       await queryClient.invalidateQueries({ queryKey: ["gateway-price"] });
-    } catch (cause) { window.alert(`同步失败：${describeError(cause)}`); }
+    } catch (cause) { window.alert(t("price.sync.failed", { error: describeError(cause) })); }
   }
 
   async function submit() {
     setError(null); setResult(null);
     let items: ImportItem[];
-    try { items = parsePriceSheet(text); } catch (cause) { setError(`解析失败：${(cause as Error).message}`); return; }
-    if (items.length === 0) { setError("没有可导入的条目"); return; }
+    try { items = parsePriceSheet(text); } catch (cause) { setError(t("price.import.parseFailed", { error: (cause as Error).message })); return; }
+    if (items.length === 0) { setError(t("price.import.empty")); return; }
     setBusy(true);
     try {
       const r = await apiWrite<ImportResult>("/admin/gateway/price/import", "POST", { items, overwrite });
@@ -72,35 +74,35 @@ export default function Page() {
   }
 
   return <>
-    <ResourcePage config={{ resourceKey: "gateway-price", eyebrow: "GATEWAY", title: "模型定价", description: "官方价（USD/1M tokens）与售价覆盖；变更即时生效。", endpoint: "/gateway/price", errorNamespace: "gateway", listPath: "list", permissions: { page: "gateway:price:query", create: "gateway:price:create", update: "gateway:price:update", delete: "gateway:price:delete" },
+    <ResourcePage config={{ resourceKey: "gateway-price", eyebrow: t("common.eyebrow"), title: t("price.title"), description: t("price.description"), endpoint: "/gateway/price", errorNamespace: "gateway", listPath: "list", permissions: { page: "gateway:price:query", create: "gateway:price:create", update: "gateway:price:update", delete: "gateway:price:delete" },
       headerActions: <div style={{ display: "flex", gap: 8 }}>
-        <Button variant="outline" onClick={() => { setOpen(true); setResult(null); setError(null); }}>批量导入</Button>
-        <Button variant="outline" onClick={() => void syncNow()}>同步价源</Button>
+        <Button variant="outline" onClick={() => { setOpen(true); setResult(null); setError(null); }}>{t("price.action.import")}</Button>
+        <Button variant="outline" onClick={() => void syncNow()}>{t("price.action.sync")}</Button>
       </div>,
       fields: [
-      { key: "model", label: "模型", required: true },
-      { key: "inputPrice", label: "输入价", defaultValue: "0", required: true },
-      { key: "outputPrice", label: "输出价", defaultValue: "0", required: true },
-      { key: "cacheReadPrice", label: "缓存读", defaultValue: "0" },
-      { key: "cacheWritePrice", label: "缓存写", defaultValue: "0" },
-      { key: "perRequestPrice", label: "按次(μUSD)", type: "number", table: false },
-      { key: "defaultMaxOutputTokens", label: "默认输出上限", type: "number", table: false },
-      { key: "source", label: "价源", editable: false },
+      { key: "model", label: t("common.field.model"), required: true },
+      { key: "inputPrice", label: t("price.field.inputPrice"), defaultValue: "0", required: true },
+      { key: "outputPrice", label: t("price.field.outputPrice"), defaultValue: "0", required: true },
+      { key: "cacheReadPrice", label: t("price.field.cacheReadPrice"), defaultValue: "0" },
+      { key: "cacheWritePrice", label: t("price.field.cacheWritePrice"), defaultValue: "0" },
+      { key: "perRequestPrice", label: t("price.field.perRequestPrice"), type: "number", table: false },
+      { key: "defaultMaxOutputTokens", label: t("price.field.defaultMaxOutputTokens"), type: "number", table: false },
+      { key: "source", label: t("price.field.source"), editable: false },
     ] }} />
-    <Drawer open={open} onClose={() => setOpen(false)} title="批量导入定价" description="按 model 去重后逐条写入；有一条不合法则整批不写。价格单位 USD / 1M tokens。"
-      footer={<><Button variant="ghost" onClick={() => setOpen(false)}>关闭</Button><Button onClick={() => void submit()} disabled={busy || text.trim() === ""}>{busy ? "导入中…" : "导入"}</Button></>}>
+    <Drawer open={open} onClose={() => setOpen(false)} title={t("price.import.title")} description={t("price.import.description")}
+      footer={<><Button variant="ghost" onClick={() => setOpen(false)}>{t("common.action.close")}</Button><Button onClick={() => void submit()} disabled={busy || text.trim() === ""}>{busy ? t("price.import.importing") : t("price.import.submit")}</Button></>}>
       <div className="space-y-4">
         {error && <Alert tone="error">{error}</Alert>}
         {result && (result.errors.length > 0
-          ? <Alert tone="error">未写入任何条目：<br />{result.errors.map((e) => <span key={e}>{e}<br /></span>)}</Alert>
-          : <Alert tone="info">导入完成：新增 {result.created}，更新 {result.updated}，跳过 {result.skipped}。</Alert>)}
-        <Field label="价目表">
+          ? <Alert tone="error">{t("price.import.rejected")}<br />{result.errors.map((e) => <span key={e}>{e}<br /></span>)}</Alert>
+          : <Alert tone="info">{t("price.import.done", { created: result.created, updated: result.updated, skipped: result.skipped })}</Alert>)}
+        <Field label={t("price.import.sheet")}>
           <Textarea rows={14} value={text} onChange={(e) => setText(e.target.value)}
-            placeholder={"每行一条：model 输入价 输出价 [缓存读 缓存写 默认输出上限]\n例如：\ngpt-4o 2.5 10 1.25 0 16384\nclaude-sonnet-4 3 15 0.3 3.75 8192\n\n也可以直接粘贴 JSON：[{\"model\":\"gpt-4o\",\"inputPrice\":\"2.5\",\"outputPrice\":\"10\"}]\n或 {\"gpt-4o\":{\"input\":2.5,\"output\":10}}"} />
+            placeholder={t("price.import.placeholder")} />
         </Field>
         <label style={{ display: "flex", gap: 8, alignItems: "center", fontSize: 13 }}>
           <input type="checkbox" checked={overwrite} onChange={(e) => setOverwrite(e.target.checked)} />
-          覆盖已有模型的价格（取消勾选则只补新模型，已调过的价不动）
+          {t("price.import.overwrite")}
         </label>
       </div>
     </Drawer>

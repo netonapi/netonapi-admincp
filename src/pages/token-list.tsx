@@ -8,6 +8,7 @@ import {
   type DataColumn, type RowAction,
 } from "@neton/application-front-kit";
 import { useDescribeError } from "@neton/application-front-runtime/errors";
+import { useT } from "@neton/application-front-runtime/i18n";
 
 interface TokenVO {
   id: number; userId: number; name: string; display: string;
@@ -21,6 +22,7 @@ interface IssuedTokenVO { id: number; key: string; display: string }
 /** 令牌管理：创建后明文只展示一次（后端仅存哈希）。 */
 export default function Page() {
   const describeError = useDescribeError("gateway");
+  const t = useT("gateway");
   const [userId, setUserId] = React.useState("1");
   const [rows, setRows] = React.useState<TokenVO[]>([]);
   const [loading, setLoading] = React.useState(false);
@@ -61,51 +63,51 @@ export default function Page() {
 
   const columns: DataColumn<TokenVO>[] = [
     { key: "id", header: "ID", cell: (r) => r.id },
-    { key: "name", header: "名称", cell: (r) => r.name },
-    { key: "display", header: "令牌", cell: (r) => r.display },
-    { key: "quotaUsed", header: "已用 μUSD", cell: (r) => r.quotaUsed },
-    { key: "quotaBudget", header: "预算 μUSD", cell: (r) => r.quotaBudget ?? "不限" },
-    { key: "rpmLimit", header: "RPM", cell: (r) => r.rpmLimit ?? "不限" },
-    { key: "tpmLimit", header: "TPM", cell: (r) => r.tpmLimit ?? "不限" },
-    { key: "concurrencyLimit", header: "并发", cell: (r) => r.concurrencyLimit ?? "不限" },
-    { key: "status", header: "状态", cell: (r) => <StatusBadge active={r.status === 1}>{r.status === 1 ? "启用" : "禁用"}</StatusBadge> },
-    { key: "createdAt", header: "创建时间", cell: (r) => formatDateTime(r.createdAt) },
-    { key: "actions", header: "操作", cell: (row) => <RowActions primary={actions(row)} /> },
+    { key: "name", header: t("common.field.name"), cell: (r) => r.name },
+    { key: "display", header: t("token.column.display"), cell: (r) => r.display },
+    { key: "quotaUsed", header: t("token.column.quotaUsed"), cell: (r) => r.quotaUsed },
+    { key: "quotaBudget", header: t("token.column.quotaBudget"), cell: (r) => r.quotaBudget ?? t("common.unlimited") },
+    { key: "rpmLimit", header: "RPM", cell: (r) => r.rpmLimit ?? t("common.unlimited") },
+    { key: "tpmLimit", header: "TPM", cell: (r) => r.tpmLimit ?? t("common.unlimited") },
+    { key: "concurrencyLimit", header: t("token.column.concurrencyLimit"), cell: (r) => r.concurrencyLimit ?? t("common.unlimited") },
+    { key: "status", header: t("common.field.status"), cell: (r) => <StatusBadge active={r.status === 1}>{r.status === 1 ? t("common.status.enabled") : t("common.status.disabled")}</StatusBadge> },
+    { key: "createdAt", header: t("common.field.createdAt"), cell: (r) => formatDateTime(r.createdAt) },
+    { key: "actions", header: t("common.field.actions"), cell: (row) => <RowActions primary={actions(row)} /> },
   ];
 
   const actions = (row: TokenVO): RowAction[] => [
     row.status === 1
-      ? { label: "禁用", onClick: () => void setStatus(row, 0) }
-      : { label: "启用", onClick: () => void setStatus(row, 1) },
-    { label: "删除", danger: true, kind: "delete", onClick: async () => { await apiWrite<void>(`/admin/gateway/token/delete/${row.id}`, "DELETE"); void load(); } },
+      ? { label: t("common.action.disable"), onClick: () => void setStatus(row, 0) }
+      : { label: t("common.action.enable"), onClick: () => void setStatus(row, 1) },
+    { label: t("common.action.delete"), danger: true, kind: "delete", onClick: async () => { await apiWrite<void>(`/admin/gateway/token/delete/${row.id}`, "DELETE"); void load(); } },
   ];
 
   return (
     <div className="space-y-4">
-      <PageHeader eyebrow="GATEWAY" title="API 令牌" description="sk- 令牌仅存哈希；明文只在创建时展示一次。"
-        actions={<Button onClick={() => setCreating(true)}>创建令牌</Button>} />
+      <PageHeader eyebrow={t("common.eyebrow")} title={t("token.title")} description={t("token.description")}
+        actions={<Button onClick={() => setCreating(true)}>{t("token.action.create")}</Button>} />
       <div className="flex items-end gap-3">
-        <Field label="用户 ID"><Input value={userId} onChange={(e) => setUserId(e.target.value)} className="w-32" /></Field>
-        <Button variant="outline" onClick={() => void load()}>查询</Button>
+        <Field label={t("common.field.userId")}><Input value={userId} onChange={(e) => setUserId(e.target.value)} className="w-32" /></Field>
+        <Button variant="outline" onClick={() => void load()}>{t("common.action.search")}</Button>
       </div>
       <DataTable columns={columns} rows={rows} rowKey={(r) => r.id} loading={loading} error={error ?? undefined} />
 
-      <Drawer open={creating} onClose={() => setCreating(false)} title={`为用户 ${userId} 创建令牌`}
-        footer={<><Button variant="outline" onClick={() => setCreating(false)}>取消</Button><Button onClick={() => void create()} disabled={!form.name}>创建</Button></>}>
+      <Drawer open={creating} onClose={() => setCreating(false)} title={t("token.drawer.createTitle", { userId })}
+        footer={<><Button variant="outline" onClick={() => setCreating(false)}>{t("common.action.cancel")}</Button><Button onClick={() => void create()} disabled={!form.name}>{t("common.action.create")}</Button></>}>
         <div className="space-y-4">
-          <Field label="名称"><Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /></Field>
-          <Field label="预算 μUSD（留空不限）"><Input value={form.quotaBudget} onChange={(e) => setForm({ ...form, quotaBudget: e.target.value })} /></Field>
-          <Field label="RPM 上限（留空不限）"><Input value={form.rpmLimit} onChange={(e) => setForm({ ...form, rpmLimit: e.target.value })} /></Field>
-          <Field label="TPM 上限（留空不限）"><Input value={form.tpmLimit} onChange={(e) => setForm({ ...form, tpmLimit: e.target.value })} /></Field>
-          <Field label="并发上限（留空不限）"><Input value={form.concurrencyLimit} onChange={(e) => setForm({ ...form, concurrencyLimit: e.target.value })} /></Field>
+          <Field label={t("common.field.name")}><Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /></Field>
+          <Field label={t("token.field.quotaBudget")}><Input value={form.quotaBudget} onChange={(e) => setForm({ ...form, quotaBudget: e.target.value })} /></Field>
+          <Field label={t("token.field.rpmLimit")}><Input value={form.rpmLimit} onChange={(e) => setForm({ ...form, rpmLimit: e.target.value })} /></Field>
+          <Field label={t("token.field.tpmLimit")}><Input value={form.tpmLimit} onChange={(e) => setForm({ ...form, tpmLimit: e.target.value })} /></Field>
+          <Field label={t("token.field.concurrencyLimit")}><Input value={form.concurrencyLimit} onChange={(e) => setForm({ ...form, concurrencyLimit: e.target.value })} /></Field>
         </div>
       </Drawer>
 
-      <Drawer open={issued != null} onClose={() => setIssued(null)} title="令牌已创建——明文仅此一次"
-        footer={<Button onClick={() => setIssued(null)}>我已保存</Button>}>
+      <Drawer open={issued != null} onClose={() => setIssued(null)} title={t("token.issued.title")}
+        footer={<Button onClick={() => setIssued(null)}>{t("token.issued.saved")}</Button>}>
         {issued && (
           <div className="space-y-3">
-            <p className="text-sm text-[var(--muted-foreground)]">请立即复制保存，关闭后无法再次查看：</p>
+            <p className="text-sm text-[var(--muted-foreground)]">{t("token.issued.hint")}</p>
             <code className="block break-all rounded-lg border border-[var(--border)] bg-[var(--muted)] p-3 text-xs">{issued.key}</code>
           </div>
         )}

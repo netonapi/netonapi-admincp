@@ -9,6 +9,7 @@ import {
   type DataColumn, type RowAction,
 } from "@neton/application-front-kit";
 import { useDescribeError } from "@neton/application-front-runtime/errors";
+import { useT } from "@neton/application-front-runtime/i18n";
 
 interface OverrideVO {
   userId: number; groupCode: string; remark?: string | null;
@@ -33,6 +34,7 @@ const EMPTY: FormState = { editing: false, userId: "", groupCode: "", remark: ""
  */
 export default function Page() {
   const describeError = useDescribeError("gateway");
+  const t = useT("gateway");
   const canCreate = usePermission("gateway:group-override:create");
   const canUpdate = usePermission("gateway:group-override:update");
   const canDelete = usePermission("gateway:group-override:delete");
@@ -61,8 +63,8 @@ export default function Page() {
   async function save() {
     if (!form) return;
     const userId = Number(form.userId);
-    if (!Number.isInteger(userId) || userId <= 0) { setError("userId 必须是正整数"); return; }
-    if (!form.groupCode.trim()) { setError("请选择或填写计价组 code"); return; }
+    if (!Number.isInteger(userId) || userId <= 0) { setError(t("error.USER_ID_INVALID")); return; }
+    if (!form.groupCode.trim()) { setError(t("override.error.groupCodeRequired")); return; }
     setSaving(true); setError(null);
     try {
       const body = { userId, groupCode: form.groupCode.trim(), remark: form.remark.trim() || null };
@@ -81,17 +83,17 @@ export default function Page() {
   }
 
   const actions = (row: OverrideVO): RowAction[] => [
-    ...(canUpdate ? [{ label: "改价", tone: "primary" as const, onClick: () => { setError(null); setForm({ editing: true, userId: String(row.userId), groupCode: row.groupCode, remark: row.remark ?? "" }); } }] : []),
-    ...(canDelete ? [{ label: "撤销", danger: true, kind: "delete" as const, onClick: () => setRevoking(row) }] : []),
+    ...(canUpdate ? [{ label: t("override.action.edit"), tone: "primary" as const, onClick: () => { setError(null); setForm({ editing: true, userId: String(row.userId), groupCode: row.groupCode, remark: row.remark ?? "" }); } }] : []),
+    ...(canDelete ? [{ label: t("override.action.revoke"), danger: true, kind: "delete" as const, onClick: () => setRevoking(row) }] : []),
   ];
 
   const columns: DataColumn<OverrideVO>[] = [
-    { key: "userId", header: "用户 ID", cell: (r) => r.userId },
-    { key: "groupCode", header: "计价组", cell: (r) => <code className="text-xs">{r.groupCode}</code> },
-    { key: "ratio", header: "倍率", cell: (r) => ratioOf(r.groupCode) ?? "-" },
-    { key: "remark", header: "备注", cell: (r) => r.remark || "-" },
-    { key: "updatedAt", header: "更新时间", cell: (r) => formatDateTime(r.updatedAt) },
-    ...((canUpdate || canDelete) ? [{ key: "actions", header: "操作", headerClassName: "text-right", className: "text-right", cell: (row: OverrideVO) => <RowActions primary={actions(row)} /> } satisfies DataColumn<OverrideVO>] : []),
+    { key: "userId", header: t("common.field.userId"), cell: (r) => r.userId },
+    { key: "groupCode", header: t("override.field.group"), cell: (r) => <code className="text-xs">{r.groupCode}</code> },
+    { key: "ratio", header: t("common.field.ratio"), cell: (r) => ratioOf(r.groupCode) ?? "-" },
+    { key: "remark", header: t("common.field.remark"), cell: (r) => r.remark || "-" },
+    { key: "updatedAt", header: t("override.column.updatedAt"), cell: (r) => formatDateTime(r.updatedAt) },
+    ...((canUpdate || canDelete) ? [{ key: "actions", header: t("common.field.actions"), headerClassName: "text-right", className: "text-right", cell: (row: OverrideVO) => <RowActions primary={actions(row)} /> } satisfies DataColumn<OverrideVO>] : []),
   ];
 
   /**
@@ -105,45 +107,44 @@ export default function Page() {
     }
     const known = groups.some((g) => g.code === current.groupCode);
     return <Select value={current.groupCode} onChange={(e) => setForm({ ...current, groupCode: e.target.value })}>
-      <option value="">请选择</option>
-      {!known && current.groupCode !== "" && <option value={current.groupCode}>{current.groupCode}（已不在组列表中）</option>}
-      {groups.map((g) => <option key={g.code} value={g.code}>{g.code}（{g.name}，×{g.ratio}）</option>)}
+      <option value="">{t("override.option.placeholder")}</option>
+      {!known && current.groupCode !== "" && <option value={current.groupCode}>{t("override.option.missing", { code: current.groupCode })}</option>}
+      {groups.map((g) => <option key={g.code} value={g.code}>{t("override.option.group", { code: g.code, name: g.name, ratio: g.ratio })}</option>)}
     </Select>;
   }
 
   return (
     <div className="space-y-4">
-      <PageHeader eyebrow="GATEWAY" title="用户计价例外" description="给单个用户指定计费组（大客户谈判价）。优先级高于会员组映射，低于令牌覆盖。撤销后该用户回到会员组或 default，不是「不计费」。"
-        actions={<>{canCreate && <Button onClick={() => { setError(null); setForm({ ...EMPTY }); }}>新增例外</Button>}<Button variant="outline" onClick={() => void load()}>刷新</Button></>} />
+      <PageHeader eyebrow={t("common.eyebrow")} title={t("override.title")} description={t("override.description")}
+        actions={<>{canCreate && <Button onClick={() => { setError(null); setForm({ ...EMPTY }); }}>{t("override.action.create")}</Button>}<Button variant="outline" onClick={() => void load()}>{t("common.action.refresh")}</Button></>} />
       <DataTable columns={columns} rows={rows} rowKey={(r) => r.userId} loading={loading} error={error ?? undefined} />
 
       <Drawer open={form != null} onClose={() => setForm(null)}
-        title={`${form?.editing ? "改价" : "新增例外"}${form?.editing ? `（用户 ${form.userId}）` : ""}`}
-        footer={<><Button variant="outline" onClick={() => setForm(null)}>取消</Button><Button onClick={() => void save()} disabled={saving}>{saving ? "保存中…" : "保存"}</Button></>}>
+        title={form?.editing ? t("override.drawer.editTitle", { userId: form.userId }) : t("override.action.create")}
+        footer={<><Button variant="outline" onClick={() => setForm(null)}>{t("common.action.cancel")}</Button><Button onClick={() => void save()} disabled={saving}>{saving ? t("common.action.saving") : t("common.action.save")}</Button></>}>
         {form && <div className="space-y-4">
           {error && <div className="rounded-lg bg-red-50 p-3 text-xs text-red-700">{error}</div>}
-          <Field label="用户 ID">
+          <Field label={t("common.field.userId")}>
             {form.editing
               ? <Input value={form.userId} readOnly className="bg-[var(--muted)]" />
               : <Input type="number" value={form.userId} onChange={(e) => setForm({ ...form, userId: e.target.value })} />}
           </Field>
           {!form.editing && <p className="text-xs text-[var(--muted-foreground)]">
-            后端无法校验这个 ID 是否真有此人（gateway 编译期看不见 member）。填错一位不会报错，
-            客户照旧按 default 计价 —— 保存后请在列表里核对一遍。
+            {t("override.hint.userId")}
           </p>}
-          <Field label="计价组">{renderGroupCodePicker(form)}</Field>
+          <Field label={t("override.field.group")}>{renderGroupCodePicker(form)}</Field>
           {ratioOf(form.groupCode) && <p className="text-xs text-[var(--muted-foreground)]">
-            倍率 ×{ratioOf(form.groupCode)}：保存后这位用户的请求按它计价，会员组映射与 default 都不再参与；令牌级覆盖仍高于它。
+            {t("override.hint.ratio", { ratio: ratioOf(form.groupCode) })}
           </p>}
-          <Field label="备注（合同号 / 审批人 / 有效期口径，最多 256 字）">
+          <Field label={t("override.field.remark")}>
             <Textarea value={form.remark} onChange={(e) => setForm({ ...form, remark: e.target.value })} />
           </Field>
         </div>}
       </Drawer>
 
-      <ConfirmDialog open={revoking != null} title={`撤销用户 ${revoking?.userId ?? ""} 的计价例外`}
-        description="撤销是硬删：谈过的价与备注里的合同号在本表里不再留痕（结算快照只留倍率，不留是哪个组、也不留是哪一层解析出的）。撤销后该用户回到会员组映射或 default。"
-        confirmLabel="确认撤销" onCancel={() => setRevoking(null)} onConfirm={() => revoking && void revoke(revoking)} />
+      <ConfirmDialog open={revoking != null} title={t("override.revoke.title", { userId: revoking?.userId ?? "" })}
+        description={t("override.revoke.description")}
+        confirmLabel={t("override.revoke.confirm")} onCancel={() => setRevoking(null)} onConfirm={() => revoking && void revoke(revoking)} />
     </div>
   );
 }

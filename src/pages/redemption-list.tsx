@@ -11,6 +11,7 @@ import {
   type DataColumn, type RowAction,
 } from "@neton/application-front-kit";
 import { useDescribeError } from "@neton/application-front-runtime/errors";
+import { useT } from "@neton/application-front-runtime/i18n";
 
 interface CodeVO {
   id: number; code: string; quotaMicro: number; status: number; statusText: string;
@@ -48,6 +49,7 @@ const EMPTY_GEN = { quotaMicro: "", count: "1", expiresAt: "", note: "" };
  */
 export default function Page() {
   const describeError = useDescribeError("gateway");
+  const t = useT("gateway");
   const canCreate = usePermission("gateway:redemption:create");
   const canGet = usePermission("gateway:redemption:query");
   const canDisable = usePermission("gateway:redemption:disable");
@@ -89,12 +91,12 @@ export default function Page() {
     const quotaMicro = Number(gen.quotaMicro);
     const count = Number(gen.count || "1");
     // 只做形状校验。上限（单次 1000 张、备注 255 字）交给后端说，前端抄一份常量只会随版本漂。
-    if (!Number.isInteger(quotaMicro) || quotaMicro <= 0) { setError("面额必须是正整数（μUSD）"); return; }
-    if (!Number.isInteger(count) || count <= 0) { setError("数量必须是正整数"); return; }
+    if (!Number.isInteger(quotaMicro) || quotaMicro <= 0) { setError(t("redemption.error.quota")); return; }
+    if (!Number.isInteger(count) || count <= 0) { setError(t("redemption.error.count")); return; }
     const body: Record<string, unknown> = { quotaMicro, count };
     if (gen.expiresAt) {
       const at = new Date(gen.expiresAt).getTime();
-      if (Number.isNaN(at)) { setError("过期时间格式不对"); return; }
+      if (Number.isNaN(at)) { setError(t("redemption.error.expiresAt")); return; }
       body.expiresAt = at;
     }
     if (gen.note.trim()) body.note = gen.note.trim();
@@ -124,7 +126,7 @@ export default function Page() {
 
   async function disableBatch() {
     const bid = stopBatchId.trim();
-    if (!bid) { setError("请填写要整批作废的批次号"); return; }
+    if (!bid) { setError(t("redemption.error.batchIdRequired")); return; }
     try {
       const vo = await apiWrite<{ batchId: string; disabled: number }>("/admin/gateway/redemption/disable-batch", "POST", { batchId: bid });
       setBatchStop(false);
@@ -132,29 +134,29 @@ export default function Page() {
       setStopBatchId("");
       const next = { batchId: vo.batchId, status: "" };
       setDraft(next); setFilters(next); setPage(1);
-      setNotice(`批次 ${vo.batchId} 整批作废完成：本次作废 ${vo.disabled} 张（0 表示这批本来就没有未使用的码）。`);
+      setNotice(t("redemption.batchStop.done", { batchId: vo.batchId, disabled: vo.disabled }));
     } catch (cause) { setError(describeError(cause)); setBatchStop(false); }
   }
 
   const actions = (row: CodeVO): RowAction[] => [
-    ...(canGet && row.batchId ? [{ label: "批次", kind: "list" as const, onClick: () => void openStats(row.batchId as string) }] : []),
+    ...(canGet && row.batchId ? [{ label: t("redemption.action.batch"), kind: "list" as const, onClick: () => void openStats(row.batchId as string) }] : []),
     ...(canDisable && row.status === 0
-      ? [{ label: "作废", danger: true, kind: "disable" as const, onClick: () => setRevoking(row) }]
+      ? [{ label: t("redemption.action.disable"), danger: true, kind: "disable" as const, onClick: () => setRevoking(row) }]
       : []),
   ];
 
   const columns: DataColumn<CodeVO>[] = [
     { key: "id", header: "ID", cell: (r) => r.id },
-    { key: "code", header: "兑换码", cell: (r) => <code className="text-xs">{r.code}</code> },
-    { key: "quotaMicro", header: "面额", cell: (r) => <span className="tabular-nums">{usd(r.quotaMicro)}</span> },
-    { key: "status", header: "状态", cell: (r) => <StatusBadge active={r.status === 0}>{r.statusText}</StatusBadge> },
-    { key: "batchId", header: "批次", cell: (r) => (r.batchId ? <code className="text-xs">{r.batchId}</code> : "-") },
-    { key: "usedUserId", header: "兑换人", cell: (r) => r.usedUserId ?? "-" },
-    { key: "usedAt", header: "兑换时间", cell: (r) => formatDateTime(r.usedAt) },
-    { key: "expiresAt", header: "过期时间", cell: (r) => formatDateTime(r.expiresAt) },
-    { key: "note", header: "备注", cell: (r) => r.note || "-" },
+    { key: "code", header: t("redemption.column.code"), cell: (r) => <code className="text-xs">{r.code}</code> },
+    { key: "quotaMicro", header: t("redemption.column.quota"), cell: (r) => <span className="tabular-nums">{usd(r.quotaMicro)}</span> },
+    { key: "status", header: t("common.field.status"), cell: (r) => <StatusBadge active={r.status === 0}>{r.statusText}</StatusBadge> },
+    { key: "batchId", header: t("redemption.column.batchId"), cell: (r) => (r.batchId ? <code className="text-xs">{r.batchId}</code> : "-") },
+    { key: "usedUserId", header: t("redemption.column.usedUserId"), cell: (r) => r.usedUserId ?? "-" },
+    { key: "usedAt", header: t("redemption.column.usedAt"), cell: (r) => formatDateTime(r.usedAt) },
+    { key: "expiresAt", header: t("redemption.column.expiresAt"), cell: (r) => formatDateTime(r.expiresAt) },
+    { key: "note", header: t("common.field.remark"), cell: (r) => r.note || "-" },
     ...((canGet || canDisable) ? [{
-      key: "ops", header: "操作", headerClassName: "text-right", className: "text-right",
+      key: "ops", header: t("common.field.actions"), headerClassName: "text-right", className: "text-right",
       cell: (row: CodeVO) => <RowActions primary={actions(row)} />,
     } satisfies DataColumn<CodeVO>] : []),
   ];
@@ -164,12 +166,12 @@ export default function Page() {
 
   return (
     <div className="space-y-4">
-      <PageHeader eyebrow="GATEWAY" title="兑换码"
-        description="预付卡：用户自助兑换后额度直接入账。作废只能作废未使用的码；整批作废用于码外泄时止损。"
+      <PageHeader eyebrow={t("common.eyebrow")} title={t("redemption.title")}
+        description={t("redemption.description")}
         actions={<>
-          {canCreate && <Button onClick={() => { setError(null); setGenerating(true); }}>生成批次</Button>}
-          {canDisable && <Button variant="outline" onClick={() => { setError(null); setStopBatchId(filters.batchId); setBatchStop(true); }}>整批作废</Button>}
-          <Button variant="outline" onClick={() => void load(page, pageSize, filters)} disabled={loading}>刷新</Button>
+          {canCreate && <Button onClick={() => { setError(null); setGenerating(true); }}>{t("redemption.action.generate")}</Button>}
+          {canDisable && <Button variant="outline" onClick={() => { setError(null); setStopBatchId(filters.batchId); setBatchStop(true); }}>{t("redemption.action.disableBatch")}</Button>}
+          <Button variant="outline" onClick={() => void load(page, pageSize, filters)} disabled={loading}>{t("common.action.refresh")}</Button>
         </>} />
 
       {notice && <div className="rounded-lg border border-[var(--border)] bg-[var(--muted)] p-3 text-xs text-[var(--foreground)]">{notice}</div>}
@@ -177,19 +179,19 @@ export default function Page() {
 
       <FilterPanel onSubmit={(event) => { event.preventDefault(); setPage(1); setFilters({ ...draft }); }}>
         <div className="flex flex-wrap items-end gap-3">
-          <div className="min-w-56 flex-1"><Field label="批次号">
-            <Input value={draft.batchId} placeholder="留空=全部批次" onChange={(e) => setDraft({ ...draft, batchId: e.target.value })} />
+          <div className="min-w-56 flex-1"><Field label={t("redemption.field.batchId")}>
+            <Input value={draft.batchId} placeholder={t("redemption.placeholder.batchId")} onChange={(e) => setDraft({ ...draft, batchId: e.target.value })} />
           </Field></div>
-          <div className="min-w-40"><Field label="状态">
+          <div className="min-w-40"><Field label={t("common.field.status")}>
             <Select value={draft.status} onChange={(e) => setDraft({ ...draft, status: e.target.value })}>
-              <option value="">全部</option>
-              <option value="0">未使用</option>
-              <option value="1">已使用</option>
-              <option value="2">已作废</option>
+              <option value="">{t("redemption.status.all")}</option>
+              <option value="0">{t("redemption.status.unused")}</option>
+              <option value="1">{t("redemption.status.used")}</option>
+              <option value="2">{t("redemption.status.disabled")}</option>
             </Select>
           </Field></div>
-          <Button type="button" variant="ghost" onClick={() => { const n = { batchId: "", status: "" }; setDraft(n); setFilters(n); setPage(1); }}>重置</Button>
-          <Button type="submit">查询</Button>
+          <Button type="button" variant="ghost" onClick={() => { const n = { batchId: "", status: "" }; setDraft(n); setFilters(n); setPage(1); }}>{t("common.action.reset")}</Button>
+          <Button type="submit">{t("common.action.search")}</Button>
         </div>
       </FilterPanel>
 
@@ -200,60 +202,57 @@ export default function Page() {
       </section>
 
       <p className="text-xs text-[var(--muted-foreground)]">
-        列表里的兑换码是脱敏的：首尾两组为真、中间两组打 *，够跟客户手里那张码对上号，
-        不能用来兑换。完整明文只在「生成」那一刻下发一次，关掉抽屉就再也取不到 ——
-        弄丢了就整批作废重新生成，与 API 令牌同纪律。
-        「状态」列的过期判定由后端算，前端不重复实现。
+        {t("redemption.hint.redacted")}
       </p>
 
-      <Drawer open={generating} onClose={() => setGenerating(false)} title="生成兑换码批次"
-        footer={<><Button variant="outline" onClick={() => setGenerating(false)}>取消</Button>
-          <Button onClick={() => void generate()} disabled={saving}>{saving ? "生成中…" : "生成"}</Button></>}>
+      <Drawer open={generating} onClose={() => setGenerating(false)} title={t("redemption.generate.title")}
+        footer={<><Button variant="outline" onClick={() => setGenerating(false)}>{t("common.action.cancel")}</Button>
+          <Button onClick={() => void generate()} disabled={saving}>{saving ? t("redemption.generate.generating") : t("redemption.generate.submit")}</Button></>}>
         <div className="space-y-4">
-          <Field label="单张面额（μUSD，1000000 = 1 美元）">
+          <Field label={t("redemption.generate.quota")}>
             <Input type="number" min={1} value={gen.quotaMicro} onChange={(e) => setGen({ ...gen, quotaMicro: e.target.value })} />
           </Field>
-          <Field label="数量（单次上限由后端定，超出会回一句可操作的原因）">
+          <Field label={t("redemption.generate.count")}>
             <Input type="number" min={1} value={gen.count} onChange={(e) => setGen({ ...gen, count: e.target.value })} />
           </Field>
           {plannedTotal > 0 && <p className="text-xs text-[var(--muted-foreground)]">
-            本批总面额 ≈ {usd(plannedTotal)}（全部被兑换时的负债上限）。
+            {t("redemption.generate.total", { total: usd(plannedTotal) })}
           </p>}
-          <Field label="过期时间（留空=永不过期）">
+          <Field label={t("redemption.generate.expiresAt")}>
             <Input type="datetime-local" value={gen.expiresAt} onChange={(e) => setGen({ ...gen, expiresAt: e.target.value })} />
           </Field>
-          <Field label="备注（活动名 / 审批单号）">
+          <Field label={t("redemption.generate.note")}>
             <Textarea value={gen.note} onChange={(e) => setGen({ ...gen, note: e.target.value })} />
           </Field>
         </div>
       </Drawer>
 
       <Drawer open={issued != null} onClose={() => setIssued(null)}
-        title={issued && issued.codes.length > 0 ? `批次 ${issued.batchId} 已生成 ${issued.codes.length} 张` : `批次 ${issued?.batchId ?? ""}`}
-        description="这是这批码唯一一次以完整明文出现：关掉抽屉后列表里只剩脱敏形态，取不回来。请立刻复制并分发；弄丢了就整批作废、重新生成。"
-        footer={<Button onClick={() => setIssued(null)}>关闭</Button>}>
+        title={issued && issued.codes.length > 0 ? t("redemption.issued.title", { batchId: issued.batchId, count: issued.codes.length }) : t("redemption.issued.batch", { batchId: issued?.batchId ?? "" })}
+        description={t("redemption.issued.description")}
+        footer={<Button onClick={() => setIssued(null)}>{t("common.action.close")}</Button>}>
         {issued && issued.codes.length > 0 && (
           <div className="space-y-3">
             <code className="block max-h-80 overflow-auto break-all rounded-lg border border-[var(--border)] bg-[var(--muted)] p-3 text-xs leading-6">
               {issued.codes.join("\n")}
             </code>
-            <Button variant="outline" onClick={() => void navigator.clipboard?.writeText(issued.codes.join("\n"))}>复制全部</Button>
+            <Button variant="outline" onClick={() => void navigator.clipboard?.writeText(issued.codes.join("\n"))}>{t("redemption.issued.copyAll")}</Button>
           </div>
         )}
       </Drawer>
 
-      <Drawer open={stats != null} onClose={() => setStats(null)} title={`批次 ${stats?.batchId ?? ""} 核销情况`}
-        footer={<Button variant="outline" onClick={() => setStats(null)}>关闭</Button>}>
+      <Drawer open={stats != null} onClose={() => setStats(null)} title={t("redemption.stats.title", { batchId: stats?.batchId ?? "" })}
+        footer={<Button variant="outline" onClick={() => setStats(null)}>{t("common.action.close")}</Button>}>
         {stats && <dl className="overflow-hidden rounded-xl border border-[var(--border)]">
           {[
-            ["总数", String(stats.total)],
-            ["未使用", String(stats.unused)],
-            ["已使用", String(stats.used)],
-            ["已作废", String(stats.disabled)],
-            ["已过期", String(stats.expired)],
-            ["单张面额", `${usd(stats.quotaMicro)}（${stats.quotaMicro} μUSD）`],
-            ["已核销总额", `${usd(stats.redeemedMicro)}（${stats.redeemedMicro} μUSD）`],
-            ["未核销负债", usd(stats.quotaMicro * stats.unused)],
+            [t("redemption.stats.total"), String(stats.total)],
+            [t("redemption.status.unused"), String(stats.unused)],
+            [t("redemption.status.used"), String(stats.used)],
+            [t("redemption.status.disabled"), String(stats.disabled)],
+            [t("redemption.status.expired"), String(stats.expired)],
+            [t("redemption.stats.quota"), t("redemption.stats.usdWithMicro", { usd: usd(stats.quotaMicro), micro: stats.quotaMicro })],
+            [t("redemption.stats.redeemed"), t("redemption.stats.usdWithMicro", { usd: usd(stats.redeemedMicro), micro: stats.redeemedMicro })],
+            [t("redemption.stats.outstanding"), usd(stats.quotaMicro * stats.unused)],
           ].map(([k, v]) => (
             <div key={k} className="grid grid-cols-[120px_minmax(0,1fr)] gap-4 border-b border-[var(--border)] p-3 last:border-0">
               <dt className="text-xs font-semibold text-[var(--muted-foreground)]">{k}</dt>
@@ -263,18 +262,18 @@ export default function Page() {
         </dl>}
       </Drawer>
 
-      <ConfirmDialog open={revoking != null} title={`作废兑换码 #${revoking?.id ?? 0} ${revoking?.code ?? ""}`}
-        description="作废后这张码兑不出去，且不能恢复（后端没有反向操作）。已使用的码不会被作废。列表里的码是脱敏的，确认时以 id 为准 —— 作废接口本来也是按 id 走的。"
-        confirmLabel="确认作废" onCancel={() => setRevoking(null)} onConfirm={() => revoking && void disableOne(revoking)} />
+      <ConfirmDialog open={revoking != null} title={t("redemption.disable.title", { id: revoking?.id ?? 0, code: revoking?.code ?? "" })}
+        description={t("redemption.disable.description")}
+        confirmLabel={t("redemption.disable.confirm")} onCancel={() => setRevoking(null)} onConfirm={() => revoking && void disableOne(revoking)} />
 
-      <Drawer open={batchStop} onClose={() => setBatchStop(false)} title="整批作废"
-        description="码外泄时的止损入口：只作废该批次里未使用的码，已使用的不动。"
-        footer={<><Button variant="outline" onClick={() => setBatchStop(false)}>取消</Button>
-          <Button variant="destructive" onClick={() => void disableBatch()}>确认整批作废</Button></>}>
+      <Drawer open={batchStop} onClose={() => setBatchStop(false)} title={t("redemption.action.disableBatch")}
+        description={t("redemption.batchStop.description")}
+        footer={<><Button variant="outline" onClick={() => setBatchStop(false)}>{t("common.action.cancel")}</Button>
+          <Button variant="destructive" onClick={() => void disableBatch()}>{t("redemption.batchStop.confirm")}</Button></>}>
         <div className="space-y-3">
-          <Field label="批次号"><Input value={stopBatchId} onChange={(e) => setStopBatchId(e.target.value)} /></Field>
+          <Field label={t("redemption.field.batchId")}><Input value={stopBatchId} onChange={(e) => setStopBatchId(e.target.value)} /></Field>
           <p className="text-xs text-[var(--muted-foreground)]">
-            作废 0 张是合法结果（这批本来就全用完或已作废），不会报错。
+            {t("redemption.batchStop.hint")}
           </p>
         </div>
       </Drawer>
