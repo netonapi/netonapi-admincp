@@ -4,7 +4,7 @@ import * as React from "react";
 import { apiFetch, apiWrite } from "@neton/application-front-runtime/client";
 import { formatDateTime } from "@neton/application-front-runtime/types";
 import {
-  Button, DataTable, Drawer, Field, Input, PageHeader, RowActions, StatusBadge,
+  Button, DataTable, Drawer, Field, Input, PageHeader, RowActions, Select, StatusBadge,
   type DataColumn, type RowAction,
 } from "@neton/application-front-kit";
 import { useDescribeError } from "@neton/application-front-runtime/errors";
@@ -14,8 +14,9 @@ interface TokenVO {
   id: number; userId: number; name: string; display: string;
   quotaBudget?: number | null; quotaUsed: number; expiresAt?: number | null;
   rpmLimit?: number | null; tpmLimit?: number | null; concurrencyLimit?: number | null;
-  status: number; createdAt?: number | null;
+  status: number; createdAt?: number | null; groupOverride?: string | null;
 }
+interface GroupVO { code: string; name: string; ratio: string }
 
 interface IssuedTokenVO { id: number; key: string; display: string }
 
@@ -28,7 +29,10 @@ export default function Page() {
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const [creating, setCreating] = React.useState(false);
-  const [form, setForm] = React.useState({ name: "", quotaBudget: "", rpmLimit: "", tpmLimit: "", concurrencyLimit: "" });
+  const [form, setForm] = React.useState({ name: "", quotaBudget: "", rpmLimit: "", tpmLimit: "", concurrencyLimit: "", groupOverride: "" });
+  const [groups, setGroups] = React.useState<GroupVO[]>([]);
+  const [grouping, setGrouping] = React.useState<{ row: TokenVO; code: string } | null>(null);
+  React.useEffect(() => { apiFetch<GroupVO[]>("/admin/gateway/group/list").then(setGroups).catch(() => setGroups([])); }, []);
   const [issued, setIssued] = React.useState<IssuedTokenVO | null>(null);
 
   const load = React.useCallback(async () => {
@@ -50,8 +54,9 @@ export default function Page() {
       if (form.rpmLimit) body.rpmLimit = Number(form.rpmLimit);
       if (form.tpmLimit) body.tpmLimit = Number(form.tpmLimit);
       if (form.concurrencyLimit) body.concurrencyLimit = Number(form.concurrencyLimit);
+      if (form.groupOverride) body.groupOverride = form.groupOverride;
       const vo = await apiWrite<IssuedTokenVO>(`/admin/gateway/token/create`, "POST", body);
-      setIssued(vo); setCreating(false); setForm({ name: "", quotaBudget: "", rpmLimit: "", tpmLimit: "", concurrencyLimit: "" });
+      setIssued(vo); setCreating(false); setForm({ name: "", quotaBudget: "", rpmLimit: "", tpmLimit: "", concurrencyLimit: "", groupOverride: "" });
       void load();
     } catch (cause) { setError(describeError(cause)); }
   }
@@ -70,12 +75,28 @@ export default function Page() {
     { key: "rpmLimit", header: "RPM", cell: (r) => r.rpmLimit ?? t("common.unlimited") },
     { key: "tpmLimit", header: "TPM", cell: (r) => r.tpmLimit ?? t("common.unlimited") },
     { key: "concurrencyLimit", header: t("token.column.concurrencyLimit"), cell: (r) => r.concurrencyLimit ?? t("common.unlimited") },
+    { key: "group", header: t("token.column.group"), cell: (r) => r.groupOverride ? <code className="text-xs">{r.groupOverride}</code> : <span className="text-[var(--muted-foreground)]">{t("token.group.inherit")}</span> },
     { key: "status", header: t("common.field.status"), cell: (r) => <StatusBadge active={r.status === 1}>{r.status === 1 ? t("common.status.enabled") : t("common.status.disabled")}</StatusBadge> },
     { key: "createdAt", header: t("common.field.createdAt"), cell: (r) => formatDateTime(r.createdAt) },
     { key: "actions", header: t("common.field.actions"), cell: (row) => <RowActions primary={actions(row)} /> },
   ];
 
+  async function saveGroup() {
+    if (!grouping) return;
+    try {
+      await apiWrite<void>(`/admin/gateway/token/update-group?id=${grouping.row.id}&groupCode=${encodeURIComponent(grouping.code)}`, "PUT");
+      setGrouping(null); void load();
+    } catch (cause) { setError(describeError(cause)); }
+  }
+
+  const groupOptions = (current: string) => <>
+    <option value="">{t("token.group.inherit")}</option>
+    {current && !groups.some((g) => g.code === current) && <option value={current}>{current}</option>}
+    {groups.map((g) => <option key={g.code} value={g.code}>{t("override.option.group", { code: g.code, name: g.name, ratio: g.ratio })}</option>)}
+  </>;
+
   const actions = (row: TokenVO): RowAction[] => [
+    { label: t("token.action.group"), onClick: () => setGrouping({ row, code: row.groupOverride ?? "" }) },
     row.status === 1
       ? { label: t("common.action.disable"), onClick: () => void setStatus(row, 0) }
       : { label: t("common.action.enable"), onClick: () => void setStatus(row, 1) },
@@ -100,7 +121,17 @@ export default function Page() {
           <Field label={t("token.field.rpmLimit")}><Input value={form.rpmLimit} onChange={(e) => setForm({ ...form, rpmLimit: e.target.value })} /></Field>
           <Field label={t("token.field.tpmLimit")}><Input value={form.tpmLimit} onChange={(e) => setForm({ ...form, tpmLimit: e.target.value })} /></Field>
           <Field label={t("token.field.concurrencyLimit")}><Input value={form.concurrencyLimit} onChange={(e) => setForm({ ...form, concurrencyLimit: e.target.value })} /></Field>
+          <Field label={t("token.field.group")}><Select value={form.groupOverride} onChange={(e) => setForm({ ...form, groupOverride: e.target.value })}>{groupOptions(form.groupOverride)}</Select></Field>
+          <p className="text-xs text-[var(--muted-foreground)]">{t("token.group.hint")}</p>
         </div>
+      </Drawer>
+
+      <Drawer open={grouping != null} onClose={() => setGrouping(null)} title={grouping ? t("token.group.title", { name: grouping.row.name }) : ""}
+        footer={<><Button variant="outline" onClick={() => setGrouping(null)}>{t("common.action.cancel")}</Button><Button onClick={() => void saveGroup()}>{t("common.action.save")}</Button></>}>
+        {grouping && <div className="space-y-3">
+          <Field label={t("token.field.group")}><Select value={grouping.code} onChange={(e) => setGrouping({ ...grouping, code: e.target.value })}>{groupOptions(grouping.code)}</Select></Field>
+          <p className="text-xs text-[var(--muted-foreground)]">{t("token.group.hint")}</p>
+        </div>}
       </Drawer>
 
       <Drawer open={issued != null} onClose={() => setIssued(null)} title={t("token.issued.title")}

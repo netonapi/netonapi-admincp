@@ -9,11 +9,13 @@ import { useT } from "@neton/application-front-runtime/i18n";
 interface PeriodStat { requests: number; errors: number; charged: number; cost: number; promptTokens: number; completionTokens: number; activeUsers: number }
 interface DailyStat { date: string; requests: number; errors: number; charged: number; cost: number }
 interface ModelStat { model: string; requests: number; charged: number; cost: number }
-interface UserStat { userId: number; requests: number; charged: number }
-interface ChannelStat { channelId: number; name: string; status: number; requests: number; errors: number; cost: number; lastProbeAt?: number | null; lastProbeMs?: number | null; lastProbeOk?: number | null; lastProbeError?: string | null }
+interface UserStat { userId: number; requests: number; charged: number; cost?: number }
+interface GroupStat { groupCode: string; requests: number; charged: number; cost: number }
+interface ChannelStat { channelId: number; name: string; status: number; requests: number; errors: number; cost: number; charged?: number; lastProbeAt?: number | null; lastProbeMs?: number | null; lastProbeOk?: number | null; lastProbeError?: string | null }
 interface Overview {
   today: PeriodStat; period: PeriodStat; days: number; daily: DailyStat[];
-  topModels: ModelStat[]; topUsers: UserStat[]; channels: ChannelStat[];
+  topModels: ModelStat[]; topUsers: UserStat[]; channels: ChannelStat[]; groups?: GroupStat[];
+  lossRequests?: number; lossAmount?: number;
   manualReviewSettlements: number; suspendedChannels: number; generatedAt: number;
 }
 
@@ -85,13 +87,23 @@ export default function Page() {
     { key: "userId", header: t("common.field.user"), cell: (r) => `#${r.userId}` },
     { key: "requests", header: t("overview.column.requests"), cell: (r) => fmt(r.requests) },
     { key: "charged", header: t("overview.column.spend"), cell: (r) => usd(r.charged) },
+    { key: "margin", header: t("overview.column.margin"), cell: (r) => r.cost == null ? "—" : margin(r.charged, r.cost) },
+  ];
+  const groupCols: DataColumn<GroupStat>[] = [
+    { key: "group", header: t("overview.column.group"), cell: (r) => <code className="text-xs">{r.groupCode || "-"}</code> },
+    { key: "requests", header: t("overview.column.requests"), cell: (r) => fmt(r.requests) },
+    { key: "charged", header: t("overview.column.revenue"), cell: (r) => usd(r.charged) },
+    { key: "cost", header: t("overview.column.cost"), cell: (r) => usd(r.cost) },
+    { key: "margin", header: t("overview.column.margin"), cell: (r) => margin(r.charged, r.cost) },
   ];
   const channelCols: DataColumn<ChannelStat>[] = [
     { key: "name", header: t("overview.column.channel"), cell: (r) => r.name },
     { key: "status", header: t("common.field.status"), cell: (r) => <StatusBadge active={r.status === 1}>{CHANNEL_STATUS[r.status] ? t(CHANNEL_STATUS[r.status]) : String(r.status)}</StatusBadge> },
     { key: "requests", header: t("overview.column.requests"), cell: (r) => fmt(r.requests) },
     { key: "errors", header: t("overview.column.errorRate"), cell: (r) => pct(r.errors, r.requests) },
+    { key: "charged", header: t("overview.column.revenue"), cell: (r) => usd(r.charged ?? 0) },
     { key: "cost", header: t("overview.column.cost"), cell: (r) => usd(r.cost) },
+    { key: "margin", header: t("overview.column.margin"), cell: (r) => margin(r.charged ?? 0, r.cost) },
     { key: "probe", header: t("overview.column.probe"), cell: (r) => r.lastProbeOk == null ? t("overview.probe.untested") : r.lastProbeOk === 1 ? `${r.lastProbeMs ?? "?"} ms` : <span title={r.lastProbeError ?? ""} style={{ color: "var(--destructive, #c00)" }}>{t("channel.probe.unreachable")}</span> },
   ];
 
@@ -102,6 +114,11 @@ export default function Page() {
       <PageHeader eyebrow={t("common.eyebrow")} title={t("overview.title")} description={t("overview.description")}
         actions={<div style={{ display: "flex", gap: 6 }}>{[1, 7, 30].map((n) => <Button key={n} variant={days === n ? "default" : "outline"} onClick={() => setDays(n)}>{n === 1 ? t("overview.range.today") : t("overview.range.days", { days: n })}</Button>)}</div>} />
       {query.error ? <Alert tone="error">{describeError(query.error)}</Alert> : null}
+      {d && (d.lossRequests ?? 0) > 0 ? (
+        <Alert tone="error" style={{ marginTop: 12 }}>
+          {t("overview.attention.loss", { count: fmt(d.lossRequests ?? 0), amount: usd(d.lossAmount ?? 0) })} <a href="/gateway/price" style={{ textDecoration: "underline" }}>{t("overview.attention.lossLink")}</a>
+        </Alert>
+      ) : null}
       {d && (d.manualReviewSettlements > 0 || d.suspendedChannels > 0) ? (
         <Alert tone="warning" style={{ marginTop: 12 }}>
           {t("overview.attention.title")}{d.manualReviewSettlements > 0 ? t("overview.attention.settlements", { count: d.manualReviewSettlements }) : null}
@@ -141,6 +158,10 @@ export default function Page() {
           <CardContent><DataTable columns={userCols} rows={d?.topUsers ?? []} rowKey={(r) => r.userId} loading={query.isPending} /></CardContent>
         </Card>
       </div>
+      <Card style={{ margin: "12px 0" }}>
+        <CardHeader><CardTitle>{t("overview.card.groups")}</CardTitle></CardHeader>
+        <CardContent><DataTable columns={groupCols} rows={d?.groups ?? []} rowKey={(r) => r.groupCode} loading={query.isPending} /></CardContent>
+      </Card>
       <Card style={{ margin: "12px 0" }}>
         <CardHeader><CardTitle>{t("overview.card.channels")}</CardTitle></CardHeader>
         <CardContent><DataTable columns={channelCols} rows={d?.channels ?? []} rowKey={(r) => r.channelId} loading={query.isPending} /></CardContent>
