@@ -22,7 +22,7 @@ env:
 # apps/shell/package.json 用相对路径依赖 canonical 前端模块：
 #   "@neton/application-front-system": "file:../../../../Neton/neton-application-front-system"
 # 从 apps/shell 往上四层必须正好落在 workspace 根，canonical 仓必须在根下的 Neton/：
-#   dist/newgate-front/apps/shell  → up4 = workspace → workspace/Neton/*
+#   dist/netonapi-frontend/apps/shell  → up4 = workspace → workspace/Neton/*
 # 少 checkout 任何一个模块，`pnpm install` 解析 file: 依赖时就直接失败。
 #
 # ⚠️ pnpm-lock.yaml 的 resolution 里固定了 registry.npmmirror.com 的 tarball 地址
@@ -39,7 +39,7 @@ jobs:
       - name: Checkout this repository
         uses: actions/checkout@v4
         with:
-          path: dist/newgate-front
+          path: dist/netonapi-frontend
 
       - name: Checkout front-gateway pages
         uses: actions/checkout@v4
@@ -101,18 +101,18 @@ jobs:
         with:
           node-version: 24
           cache: pnpm
-          cache-dependency-path: dist/newgate-front/pnpm-lock.yaml
+          cache-dependency-path: dist/netonapi-frontend/pnpm-lock.yaml
 
       - name: Install dependencies
-        working-directory: dist/newgate-front
+        working-directory: dist/netonapi-frontend
         run: pnpm install --frozen-lockfile
 
       # typecheck 之前会先跑 registry 生成（tsx → esbuild），所以 allowBuilds 必须放行 esbuild，
       # 否则 install 就以 ERR_PNPM_IGNORED_BUILDS 失败（见 pnpm-workspace.yaml 的注释）。
       - name: Typecheck
-        working-directory: dist/newgate-front
+        working-directory: dist/netonapi-frontend
         run: pnpm typecheck
 
       - name: Build
-        working-directory: dist/newgate-front
+        working-directory: dist/netonapi-frontend
         run: pnpm build

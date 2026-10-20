@@ -1,9 +1,9 @@
 # NetonAPI 管理台
 
-NetonAPI 运营侧前端（仓名 `nanogate-admin`，本地目录沿用 `newgate-front/`）：渠道、模型定价、
+NetonAPI 运营侧前端（仓库 `netonapi/netonapi-frontend`，本地目录同名）：渠道、模型定价、
 令牌、用户、结算与审计的后台。React 19 + Next.js 16 App Router，pnpm workspace，BFF 代理模式。
 
-后端是 [`nanogate-backend`](https://github.com/zoujiaqing/nanogate-backend)（默认
+后端是 [`netonapi-backend`](https://github.com/netonapi/netonapi-backend)（默认
 `http://localhost:8800`（开发模式下 `next.config.ts` 把 `/admin` `/app` `/v1` 等路由组重写到它，管理台与 API 同源，不需要 Caddy））；部署与密钥说明见 `nanogate` 仓的
 [`DEPLOY.md`](https://github.com/zoujiaqing/nanogate/blob/main/DEPLOY.md)。
 
@@ -45,8 +45,8 @@ projects/
 ├── Neton/
 │   └── neton-application-front-{system,gateway,infra,member,payment,platform}/
 └── <workspace>/
-    ├── newgate/          # 后端
-    └── newgate-front/    # ← 本仓
+    ├── netonapi-backend/   # 后端
+    └── netonapi-frontend/  # ← 本仓
 ```
 
 > ⚠️ **现在从干净 clone 出发装不起来。** 六个模块仓里

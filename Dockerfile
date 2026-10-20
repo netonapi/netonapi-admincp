@@ -1,10 +1,10 @@
 # NetonAPI 管理台镜像。
 #
 # 构建上下文与后端镜像相同：**同时含 `Neton/` 与 `NewGate/` 的那一层**（compose 里 `context: ..`）：
-#   docker build -f NewGate/newgate-front/Dockerfile -t nanogate-front:latest .
+#   docker build -f NewGate/netonapi-frontend/Dockerfile -t netonapi-frontend:latest .
 #
 # 为什么要复刻宿主布局：apps/shell/package.json 用 `file:../../../../Neton/<repo>` 引 canonical 包，
-# 相对路径写死了，镜像内必须让 fork 落在 /src/NewGate/newgate-front、依赖落在同层的 /src/Neton/。
+# 相对路径写死了，镜像内必须让 fork 落在 /src/NewGate/netonapi-frontend、依赖落在同层的 /src/Neton/。
 #
 # 为什么只 COPY 显式子路径而不 COPY 整个仓：各仓本地都有 85–480M 的 node_modules，而父目录级
 # .dockerignore 无法版本化。BuildKit 只同步 COPY 引用到的路径，所以逐个列出 src/package.json
@@ -53,15 +53,15 @@ COPY Neton/neton-application-front-system/tsconfig.json  /src/Neton/neton-applic
 COPY Neton/neton-application-front-system/src            /src/Neton/neton-application-front-system/src
 
 # ── 本仓 ──
-WORKDIR /src/NewGate/newgate-front
-COPY NewGate/newgate-front/package.json NewGate/newgate-front/pnpm-workspace.yaml NewGate/newgate-front/pnpm-lock.yaml \
-     NewGate/newgate-front/tsconfig.base.json NewGate/newgate-front/turbo.json ./
-COPY NewGate/newgate-front/scripts ./scripts
-COPY NewGate/newgate-front/apps/shell/package.json NewGate/newgate-front/apps/shell/next.config.ts \
-     NewGate/newgate-front/apps/shell/front.modules.ts NewGate/newgate-front/apps/shell/postcss.config.mjs \
-     NewGate/newgate-front/apps/shell/tsconfig.json ./apps/shell/
-COPY NewGate/newgate-front/apps/shell/public ./apps/shell/public
-COPY NewGate/newgate-front/apps/shell/src    ./apps/shell/src
+WORKDIR /src/NewGate/netonapi-frontend
+COPY NewGate/netonapi-frontend/package.json NewGate/netonapi-frontend/pnpm-workspace.yaml NewGate/netonapi-frontend/pnpm-lock.yaml \
+     NewGate/netonapi-frontend/tsconfig.base.json NewGate/netonapi-frontend/turbo.json ./
+COPY NewGate/netonapi-frontend/scripts ./scripts
+COPY NewGate/netonapi-frontend/apps/shell/package.json NewGate/netonapi-frontend/apps/shell/next.config.ts \
+     NewGate/netonapi-frontend/apps/shell/front.modules.ts NewGate/netonapi-frontend/apps/shell/postcss.config.mjs \
+     NewGate/netonapi-frontend/apps/shell/tsconfig.json ./apps/shell/
+COPY NewGate/netonapi-frontend/apps/shell/public ./apps/shell/public
+COPY NewGate/netonapi-frontend/apps/shell/src    ./apps/shell/src
 
 # 锁文件与合并后的 package.json 一致时 --frozen-lockfile 才会过；不一致说明本仓漏提交了 lockfile，不是镜像的问题。
 RUN pnpm install --frozen-lockfile
@@ -73,7 +73,7 @@ ENV NEXT_PUBLIC_NETON_BACKEND_URL=$NEXT_PUBLIC_NETON_BACKEND_URL
 # prebuild 钩子会先跑 scripts/generate-registry.mts 生成 src/generated（该目录不入库）
 RUN pnpm --filter @neton/application-front-shell build
 
-WORKDIR /src/NewGate/newgate-front/apps/shell
+WORKDIR /src/NewGate/netonapi-frontend/apps/shell
 ENV PORT=3000
 EXPOSE 3000
 # /api/build-version 由上游合入：读 .next/BUILD_ID，构建成功后必然可用，适合当就绪探针
