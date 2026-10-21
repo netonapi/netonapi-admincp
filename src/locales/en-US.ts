@@ -414,6 +414,7 @@ const messages: Record<string, string> = {
   "error.UPSTREAM_URL_PORT_FORBIDDEN": "The port is not allowed by the deployment's egress policy (default 80 and 443; see application.conf [egress] allowed_ports)",
   "error.PRICE_NOT_FOUND": "Price not found",
   "error.PRICE_INVALID": "Price must be a non-negative decimal (at most 7 integer digits)",
+  "error.PRICE_TIERS_INVALID": "Invalid price tiers: at least two tiers, strictly increasing thresholds, only the last tier open-ended",
   "error.RATIO_INVALID": "Ratio must be a decimal",
   "error.RATIO_OUT_OF_RANGE": "Ratio must be in (0, 100]",
   "error.SALE_OVERRIDE_INVALID": "Sale override must be a JSON object",

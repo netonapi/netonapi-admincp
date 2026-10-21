@@ -414,6 +414,7 @@ const messages: Record<string, string> = {
   "error.UPSTREAM_URL_PORT_FORBIDDEN": "端口不在部署出站策略的放行列表里（默认 80、443，见 application.conf [egress] allowed_ports）",
   "error.PRICE_NOT_FOUND": "定价不存在",
   "error.PRICE_INVALID": "价格必须是非负的十进制数（整数位最多 7 位）",
+  "error.PRICE_TIERS_INVALID": "分档价格不合法：至少两档，门槛严格递增，只有最后一档不封顶",
   "error.RATIO_INVALID": "倍率必须是十进制数",
   "error.RATIO_OUT_OF_RANGE": "倍率必须大于 0 且不超过 100",
   "error.SALE_OVERRIDE_INVALID": "售价覆盖必须是 JSON 对象",
