@@ -63,7 +63,7 @@ interface OfficialForm { id: number; model: string; inputPrice: string; outputPr
 const EMPTY_OFFICIAL: OfficialForm = { id: 0, model: "", inputPrice: "0", outputPrice: "0", cacheReadPrice: "0", cacheWritePrice: "0", perRequestPrice: "", defaultMaxOutputTokens: "" };
 
 interface CalRow {
-  model: string; status: "SAME" | "CHANGED" | "NOT_FOUND" | "NEW"; sourceKey?: string | null;
+  model: string; status: "SAME" | "CHANGED" | "NOT_FOUND" | "NEW" | "UNPARSABLE"; note?: string | null; sourceKey?: string | null;
   currentInput?: string | null; currentOutput?: string | null; sourceInput?: string | null; sourceOutput?: string | null;
   sourceCacheRead?: string | null; currentCacheRead?: string | null; changeBp: number; wouldLose: boolean;
 }
@@ -152,16 +152,6 @@ export default function Page() {
     costModel: c.costModel,
   });
 
-  /** 同步价源：没配 URL 后端回 PRICE_SYNC_NOT_CONFIGURED；因亏本被扣下的模型单独列出来。 */
-  async function syncNow() {
-    try {
-      const r = await apiWrite<ImportResult>("/admin/gateway/price/sync", "POST", {});
-      const held = r.heldForLoss?.length ? "\n" + t("price.sync.held", { models: r.heldForLoss.join(", ") }) : "";
-      window.alert((r.errors.length ? t("price.sync.failedList", { errors: r.errors.join("\n") }) : t("price.sync.done", { created: r.created, updated: r.updated, skipped: r.skipped })) + held);
-      await load();
-    } catch (cause) { window.alert(t("price.sync.failed", { error: describeError(cause) })); }
-  }
-
   async function submitImport() {
     setImportError(null); setResult(null);
     let items: ImportItem[];
@@ -248,7 +238,8 @@ export default function Page() {
   async function openCalibrate() {
     setCalOpen(true); setCal(null); setCalResult(null); setCalLoading(true);
     try {
-      const p = await apiFetch<CalPreview>("/admin/gateway/price/calibrate/preview");
+      // 走「检查价源」：与每天的定时检查同一入口，顺带留一条检查记录（概览与告警据此提示待确认的变动）
+      const p = await apiWrite<CalPreview>("/admin/gateway/price/sync", "POST", {});
       setCal(p);
       setCalPicked(new Set(p.rows.filter((r) => (r.status === "CHANGED" && !r.wouldLose) || r.status === "NEW").map((r) => r.model)));
     } catch (cause) { setCal({ format: "", url: "", fetched: 0, rows: [], error: describeError(cause) }); }
@@ -319,7 +310,6 @@ export default function Page() {
           {canCreate && <Button onClick={() => void openOfficial()}>{t("price.action.create")}</Button>}
           {canCreate && <Button variant="outline" onClick={() => { setOpen(true); setResult(null); setImportError(null); }}>{t("price.action.import")}</Button>}
           {canUpdate && <Button variant="outline" onClick={() => void openCalibrate()}>{t("price.action.calibrate")}</Button>}
-          {canCreate && <Button variant="outline" onClick={() => void syncNow()}>{t("price.action.sync")}</Button>}
           <Button variant="outline" onClick={() => void load()}>{t("common.action.refresh")}</Button>
         </>} />
 
@@ -418,7 +408,7 @@ export default function Page() {
               <label className="flex items-center gap-1"><input type="checkbox" checked={calShowSame} onChange={(e) => setCalShowSame(e.target.checked)} />{t("price.cal.showSame")}</label>
             </div>
             <div className="divide-y divide-[var(--border)] rounded-lg border border-[var(--border)]">
-              {cal.rows.filter((r) => calShowSame || r.status === "CHANGED" || r.status === "NEW").map((r) => {
+              {cal.rows.filter((r) => calShowSame || r.status === "CHANGED" || r.status === "NEW" || r.status === "UNPARSABLE").map((r) => {
                 const selectable = r.status === "CHANGED" || r.status === "NEW";
                 return (
                   <label key={r.model} className="flex items-start gap-2 p-2.5 text-xs">
@@ -434,6 +424,7 @@ export default function Page() {
                       <span className="mt-0.5 block tabular-nums text-[var(--muted-foreground)]">
                         {r.status === "NEW" ? t("price.cal.newPrice", { input: r.sourceInput ?? "0", output: r.sourceOutput ?? "0" })
                           : r.status === "NOT_FOUND" ? t("price.cal.notFound")
+                          : r.status === "UNPARSABLE" ? t("price.cal.unparsable")
                           : t("price.cal.diff", { from: `${r.currentInput} / ${r.currentOutput}`, to: `${r.sourceInput} / ${r.sourceOutput}` })}
                         {r.sourceKey && r.sourceKey !== r.model ? ` · ${t("price.cal.matched", { key: r.sourceKey })}` : ""}
                       </span>

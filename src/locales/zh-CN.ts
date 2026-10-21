@@ -153,6 +153,8 @@ const messages: Record<string, string> = {
   "price.cal.status.SAME": "一致",
   "price.cal.status.NOT_FOUND": "价源里没有",
   "price.cal.status.CHANGED": "有变化",
+  "price.cal.status.UNPARSABLE": "无法解析",
+  "price.cal.unparsable": "价源里这个模型的计费写法认不出，保持现价",
   "price.cal.newPrice": "渠道已承载但还没定价，价源价：输入 ${input} / 输出 ${output}",
   "price.cal.notFound": "价源里找不到这个模型，保持现价",
   "price.cal.diff": "${from} → ${to}",

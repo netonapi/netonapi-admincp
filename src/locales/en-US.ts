@@ -153,6 +153,8 @@ const messages: Record<string, string> = {
   "price.cal.status.SAME": "Same",
   "price.cal.status.NOT_FOUND": "Not in source",
   "price.cal.status.CHANGED": "Changed",
+  "price.cal.status.UNPARSABLE": "Unsupported",
+  "price.cal.unparsable": "The billing expression for this model is not supported; the current price is kept",
   "price.cal.newPrice": "Served by a channel but not priced yet. Source price: input ${input} / output ${output}",
   "price.cal.notFound": "Not found in the source; the current price is kept",
   "price.cal.diff": "${from} → ${to}",
