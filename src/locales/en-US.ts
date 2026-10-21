@@ -417,6 +417,8 @@ const messages: Record<string, string> = {
   "error.PRICE_NOT_FOUND": "Price not found",
   "error.PRICE_INVALID": "Price must be a non-negative decimal (at most 7 integer digits)",
   "error.PRICE_TIERS_INVALID": "Invalid price tiers: at least two tiers, strictly increasing thresholds, only the last tier open-ended",
+  "error.CHANNEL_COST_SOURCE_INVALID": "Cost source must be official × discount, upstream pricing or manual",
+  "error.CHANNEL_PRICING_FORMAT_REQUIRED": "Choose a pricing format (new-api style or OpenRouter) when the cost source is upstream pricing",
   "error.RATIO_INVALID": "Ratio must be a decimal",
   "error.RATIO_OUT_OF_RANGE": "Ratio must be in (0, 100]",
   "error.SALE_OVERRIDE_INVALID": "Sale override must be a JSON object",
