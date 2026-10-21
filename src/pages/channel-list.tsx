@@ -59,13 +59,18 @@ async function pullModels(row: ResourceRecord, done: () => Promise<void>, descri
   }
 }
 
+import { ChannelCostDrawer, type CostChannel } from "./channel-cost-drawer";
+
 export default function Page() {
   const describeError = useDescribeError("gateway");
   const t = useT("gateway");
   const queryClient = useQueryClient();
   const refresh = React.useCallback(() => queryClient.invalidateQueries({ queryKey: ["gateway-channel"] }), [queryClient]);
-  return <ResourcePage config={{ resourceKey: "gateway-channel",
-  rowActions: (row) => ({ more: [
+  const [costChannel, setCostChannel] = React.useState<CostChannel | null>(null);
+  return <><ResourcePage config={{ resourceKey: "gateway-channel",
+  rowActions: (row) => ({ primary: [
+    { label: t("channel.action.cost"), onClick: () => setCostChannel(row as unknown as CostChannel) },
+  ], more: [
     { label: t("channel.action.probe"), kind: "retry", onClick: () => { void probe(row.id, String(row.name ?? row.id), describeError, t); } },
     { label: t("channel.action.pullModels"), kind: "download", onClick: () => { void pullModels(row, refresh, describeError, t); } },
   ] }), eyebrow: t("common.eyebrow"), title: t("channel.title"), description: t("channel.description"), endpoint: "/gateway/channel", errorNamespace: "gateway", listPath: "list", permissions: { page: "gateway:channel:query", create: "gateway:channel:create", update: "gateway:channel:update", delete: "gateway:channel:delete" }, fields: [
@@ -82,7 +87,14 @@ export default function Page() {
   { key: "paramOverride", label: t("channel.field.paramOverride"), type: "textarea", table: false },
   { key: "priority", label: t("channel.field.priority"), type: "number", defaultValue: 0 },
   { key: "weight", label: t("channel.field.weight"), type: "number", defaultValue: 1 },
+  { key: "costSource", label: t("channel.field.costSource"), type: "select", defaultValue: "official", options: [
+    { label: t("channel.costSource.official"), value: "official" }, { label: t("channel.costSource.upstream"), value: "upstream" }, { label: t("channel.costSource.manual"), value: "manual" } ] },
   { key: "costDiscount", label: t("channel.field.costDiscount"), defaultValue: "1.0" },
+  { key: "upstreamPricingFormat", label: t("channel.field.upstreamPricingFormat"), type: "select", table: false, options: [
+    { label: t("channel.pricingFormat.none"), value: "" }, { label: t("channel.pricingFormat.newapi"), value: "newapi" }, { label: "OpenRouter", value: "openrouter" } ] },
+  { key: "upstreamPricingUrl", label: t("channel.field.upstreamPricingUrl"), table: false, placeholder: t("channel.placeholder.upstreamPricingUrl") },
+  { key: "upstreamGroupRatio", label: t("channel.field.upstreamGroupRatio"), table: false, defaultValue: "1" },
+  { key: "upstreamCreditRate", label: t("channel.field.upstreamCreditRate"), table: false, defaultValue: "1", placeholder: t("channel.placeholder.upstreamCreditRate") },
   { key: "proxyUrl", label: t("channel.field.proxyUrl"), table: false },
   { key: "apiVersion", label: t("channel.field.apiVersion"), table: false, placeholder: t("channel.placeholder.apiVersion") },
   { key: "providerConfig", label: t("channel.field.providerConfig"), type: "textarea", table: false, placeholder: t("channel.placeholder.providerConfig") },
@@ -92,5 +104,7 @@ export default function Page() {
   { key: "status", label: t("common.field.status"), type: "select", defaultValue: 1, format: "status", options: [
     { label: t("common.status.enabled"), value: 1 }, { label: t("common.status.disabled"), value: 0 }, { label: t("common.status.suspended"), value: 2 } ] },
   { key: "remark", label: t("common.field.remark"), type: "textarea", table: false },
-] }} />;
+] }} />
+  <ChannelCostDrawer channel={costChannel} onClose={() => { setCostChannel(null); void refresh(); }} />
+  </>;
 }
