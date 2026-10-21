@@ -128,6 +128,8 @@ const messages: Record<string, string> = {
   "price.import.sheet": "Price sheet",
   "price.import.placeholder": "One entry per line: model input output [cacheRead cacheWrite defaultMaxOutput]\nFor example:\ngpt-4o 2.5 10 1.25 0 16384\nclaude-sonnet-4 3 15 0.3 3.75 8192\n\nOr paste JSON directly: [{\"model\":\"gpt-4o\",\"inputPrice\":\"2.5\",\"outputPrice\":\"10\"}]\nor {\"gpt-4o\":{\"input\":2.5,\"output\":10}}",
   "price.import.overwrite": "Overwrite prices of existing models (uncheck to only add new models and keep adjusted prices)",
+  "price.tier.above": "Input over {tokens} tokens: ${input} / ${output}",
+  "price.sale.tieredNote": "This model has long-context tiers: a fixed price applies to the first tier only; longer inputs always use official price × markup so long contexts never lose money.",
   "price.action.channels": "Channels",
   "price.channels.title": "Channels serving it (highest priority first; routing follows this order)",
   "price.channels.route": "priority {priority} · weight {weight}",

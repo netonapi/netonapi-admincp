@@ -128,6 +128,8 @@ const messages: Record<string, string> = {
   "price.import.sheet": "价目表",
   "price.import.placeholder": "每行一条：model 输入价 输出价 [缓存读 缓存写 默认输出上限]\n例如：\ngpt-4o 2.5 10 1.25 0 16384\nclaude-sonnet-4 3 15 0.3 3.75 8192\n\n也可以直接粘贴 JSON：[{\"model\":\"gpt-4o\",\"inputPrice\":\"2.5\",\"outputPrice\":\"10\"}]\n或 {\"gpt-4o\":{\"input\":2.5,\"output\":10}}",
   "price.import.overwrite": "覆盖已有模型的价格（取消勾选则只补新模型，已调过的价不动）",
+  "price.tier.above": "输入超过 {tokens} tokens：${input} / ${output}",
+  "price.sale.tieredNote": "这个模型有长上下文分档：固定售价只作用于第一档，更长的输入始终按「官方价 × 加价率」收费，避免在长上下文上亏本。",
   "price.action.channels": "渠道",
   "price.channels.title": "承载渠道（按优先级从高到低，路由按这个顺序走）",
   "price.channels.route": "优先级 {priority} · 权重 {weight}",

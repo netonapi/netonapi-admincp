@@ -53,6 +53,7 @@ interface CheckRow {
   perRequestPrice?: number | null; salePerRequest?: number | null;
   status: "OK" | "THIN" | "LOSS" | "UNSERVED" | "INVALID"; worst?: Combo | null; flagged: Combo[]; comboCount: number;
   displayName?: string | null; channels?: RouteRow[]; hints?: string[];
+  saleTiers?: { maxPromptTokens: number | null; input: string; output: string }[] | null;
 }
 interface RouteRow {
   channelId: number; name: string; priority: number; weight: number; status: number; cooldownUntil: number; lastProbeOk?: number | null;
@@ -61,7 +62,7 @@ interface RouteRow {
 interface CheckResult { markup: string; minMargin: string; loss: number; thin: number; ok: number; unserved: number; rows: CheckRow[] }
 interface PriceRow {
   id: number; model: string; inputPrice: string; outputPrice: string; cacheReadPrice: string; cacheWritePrice: string;
-  perRequestPrice?: number | null; defaultMaxOutputTokens?: number | null; saleOverride?: string | null; source?: string; displayName?: string | null;
+  perRequestPrice?: number | null; defaultMaxOutputTokens?: number | null; saleOverride?: string | null; source?: string; displayName?: string | null; tiers?: string | null;
 }
 
 interface OfficialForm { id: number; model: string; displayName: string; inputPrice: string; outputPrice: string; cacheReadPrice: string; cacheWritePrice: string; perRequestPrice: string; defaultMaxOutputTokens: string }
@@ -301,7 +302,10 @@ export default function Page() {
     </div> },
     { key: "official", header: t("price.column.official"), cell: (r) => r.perRequestPrice != null ? t("price.perRequest", { price: (r.perRequestPrice / 1e6).toFixed(4) }) : <span className="tabular-nums">${r.officialInput} / ${r.officialOutput}</span> },
     { key: "mode", header: t("price.column.mode"), cell: (r) => <span className="text-xs">{modeLabel(r)}</span> },
-    { key: "sale", header: t("price.column.sale"), cell: (r) => r.salePerRequest != null ? t("price.perRequest", { price: (r.salePerRequest / 1e6).toFixed(4) }) : r.saleInput ? <span className="tabular-nums">${r.saleInput} / ${r.saleOutput}</span> : "-" },
+    { key: "sale", header: t("price.column.sale"), cell: (r) => r.salePerRequest != null ? t("price.perRequest", { price: (r.salePerRequest / 1e6).toFixed(4) }) : r.saleInput ? <div>
+      <span className="tabular-nums">${r.saleInput} / ${r.saleOutput}</span>
+      {(r.saleTiers ?? []).slice(1).map((tier, i) => <div key={i} className="text-[11px] text-[var(--muted-foreground)] tabular-nums">{t("price.tier.above", { tokens: ((r.saleTiers ?? [])[i]?.maxPromptTokens ?? 0).toLocaleString(), input: tier.input, output: tier.output })}</div>)}
+    </div> : "-" },
     { key: "worst", header: t("price.column.worst"), cell: (r) => r.worst ? <div className="space-y-0.5"><div className="tabular-nums text-xs font-medium">{pct(r.worst.marginBp)}</div><div className="text-[11px] text-[var(--muted-foreground)]">{comboText(r.worst)}</div></div> : <span className="text-xs text-[var(--muted-foreground)]">{t("price.noChannel")}</span> },
     { key: "status", header: t("common.field.status"), cell: (r) => <span className={`inline-flex rounded-full px-2 py-0.5 text-[11px] font-medium ${STATUS_TONE[r.status] ?? ""}`}>{t(`price.status.${r.status}`)}</span> },
     { key: "actions", header: t("common.field.actions"), headerClassName: "text-right", className: "text-right", cell: (row: CheckRow) => <RowActions primary={actions(row)} more={more(row)} /> },
@@ -380,6 +384,7 @@ export default function Page() {
             <Field label={t("price.field.cacheWritePrice")}><Input value={sale.cacheWrite} placeholder={t("price.sale.followPlaceholder")} onChange={(e) => setSale({ ...sale, cacheWrite: e.target.value })} /></Field>
           </div>}
           {saleMarkupPreview && <p className="text-xs">{t("price.sale.preview", saleMarkupPreview)}</p>}
+          {sale.row.tiers && <p className="text-xs text-amber-700">{t("price.sale.tieredNote")}</p>}
           <p className="text-xs text-[var(--muted-foreground)]">{t("price.sale.afterSave")}</p>
         </div>}
       </Drawer>
