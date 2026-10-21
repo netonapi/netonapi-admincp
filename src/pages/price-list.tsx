@@ -52,15 +52,20 @@ interface CheckRow {
   officialInput: string; officialOutput: string; saleInput: string; saleOutput: string;
   perRequestPrice?: number | null; salePerRequest?: number | null;
   status: "OK" | "THIN" | "LOSS" | "UNSERVED" | "INVALID"; worst?: Combo | null; flagged: Combo[]; comboCount: number;
+  displayName?: string | null; channels?: RouteRow[]; hints?: string[];
+}
+interface RouteRow {
+  channelId: number; name: string; priority: number; weight: number; status: number; cooldownUntil: number; lastProbeOk?: number | null;
+  costInput: string; costOutput: string; costSource: string; configuredSource: string; discount: string; stale: boolean;
 }
 interface CheckResult { markup: string; minMargin: string; loss: number; thin: number; ok: number; unserved: number; rows: CheckRow[] }
 interface PriceRow {
   id: number; model: string; inputPrice: string; outputPrice: string; cacheReadPrice: string; cacheWritePrice: string;
-  perRequestPrice?: number | null; defaultMaxOutputTokens?: number | null; saleOverride?: string | null; source?: string;
+  perRequestPrice?: number | null; defaultMaxOutputTokens?: number | null; saleOverride?: string | null; source?: string; displayName?: string | null;
 }
 
-interface OfficialForm { id: number; model: string; inputPrice: string; outputPrice: string; cacheReadPrice: string; cacheWritePrice: string; perRequestPrice: string; defaultMaxOutputTokens: string }
-const EMPTY_OFFICIAL: OfficialForm = { id: 0, model: "", inputPrice: "0", outputPrice: "0", cacheReadPrice: "0", cacheWritePrice: "0", perRequestPrice: "", defaultMaxOutputTokens: "" };
+interface OfficialForm { id: number; model: string; displayName: string; inputPrice: string; outputPrice: string; cacheReadPrice: string; cacheWritePrice: string; perRequestPrice: string; defaultMaxOutputTokens: string }
+const EMPTY_OFFICIAL: OfficialForm = { id: 0, model: "", displayName: "", inputPrice: "0", outputPrice: "0", cacheReadPrice: "0", cacheWritePrice: "0", perRequestPrice: "", defaultMaxOutputTokens: "" };
 
 interface CalRow {
   model: string; status: "SAME" | "CHANGED" | "NOT_FOUND" | "NEW" | "UNPARSABLE"; note?: string | null; sourceKey?: string | null;
@@ -171,7 +176,7 @@ export default function Page() {
     try {
       const p = await apiFetch<PriceRow>(`/admin/gateway/price/get/${row.id}`);
       setOfficial({
-        id: p.id, model: p.model, inputPrice: p.inputPrice, outputPrice: p.outputPrice, cacheReadPrice: p.cacheReadPrice,
+        id: p.id, model: p.model, displayName: p.displayName ?? "", inputPrice: p.inputPrice, outputPrice: p.outputPrice, cacheReadPrice: p.cacheReadPrice,
         cacheWritePrice: p.cacheWritePrice, perRequestPrice: p.perRequestPrice != null ? String(p.perRequestPrice) : "",
         defaultMaxOutputTokens: p.defaultMaxOutputTokens != null ? String(p.defaultMaxOutputTokens) : "",
       });
@@ -183,7 +188,7 @@ export default function Page() {
     setSaving(true); setFormError(null);
     // 不带 saleOverride：后端据此保留这个模型原来的售价设置，改官方价不会把单独设的售价冲掉
     const body = {
-      id: official.id, model: official.model.trim(), inputPrice: official.inputPrice, outputPrice: official.outputPrice,
+      id: official.id, model: official.model.trim(), displayName: official.displayName.trim(), inputPrice: official.inputPrice, outputPrice: official.outputPrice,
       cacheReadPrice: official.cacheReadPrice || "0", cacheWritePrice: official.cacheWritePrice || "0",
       perRequestPrice: official.perRequestPrice.trim() ? Number(official.perRequestPrice) : null,
       defaultMaxOutputTokens: official.defaultMaxOutputTokens.trim() ? Number(official.defaultMaxOutputTokens) : null,
@@ -281,7 +286,7 @@ export default function Page() {
 
   const actions = (row: CheckRow): RowAction[] => [
     ...(canUpdate ? [{ label: t("price.action.sale"), tone: "primary" as const, onClick: () => void openSale(row) }] : []),
-    ...(row.flagged.length ? [{ label: t("price.action.detail"), onClick: () => setDetail(row) }] : []),
+    { label: t("price.action.channels"), onClick: () => setDetail(row) },
     ...(canUpdate ? [{ label: t("price.action.editOfficial"), onClick: () => void openOfficial(row) }] : []),
   ];
   const more = (row: CheckRow): RowAction[] => [
@@ -290,7 +295,10 @@ export default function Page() {
   ];
 
   const columns: DataColumn<CheckRow>[] = [
-    { key: "model", header: t("common.field.model"), cell: (r) => <code className="text-xs">{r.model}</code> },
+    { key: "model", header: t("common.field.model"), cell: (r) => <div>
+      {r.displayName ? <><div className="text-sm font-medium">{r.displayName}</div><code className="text-[11px] text-[var(--muted-foreground)]">{r.model}</code></> : <code className="text-xs">{r.model}</code>}
+      {(r.hints ?? []).length > 0 && <div className="mt-1 flex flex-wrap gap-1">{(r.hints ?? []).map((h) => <span key={h} className="rounded-full bg-amber-50 px-1.5 py-0.5 text-[10px] text-amber-700 dark:bg-amber-950/40 dark:text-amber-300">{t(`price.hint.${h}`)}</span>)}</div>}
+    </div> },
     { key: "official", header: t("price.column.official"), cell: (r) => r.perRequestPrice != null ? t("price.perRequest", { price: (r.perRequestPrice / 1e6).toFixed(4) }) : <span className="tabular-nums">${r.officialInput} / ${r.officialOutput}</span> },
     { key: "mode", header: t("price.column.mode"), cell: (r) => <span className="text-xs">{modeLabel(r)}</span> },
     { key: "sale", header: t("price.column.sale"), cell: (r) => r.salePerRequest != null ? t("price.perRequest", { price: (r.salePerRequest / 1e6).toFixed(4) }) : r.saleInput ? <span className="tabular-nums">${r.saleInput} / ${r.saleOutput}</span> : "-" },
@@ -337,6 +345,7 @@ export default function Page() {
         {official && <div className="space-y-4">
           {formError && <Alert tone="error">{formError}</Alert>}
           <Field label={t("common.field.model")}><Input value={official.model} readOnly={official.id !== 0} onChange={(e) => setOfficial({ ...official, model: e.target.value })} /></Field>
+          <Field label={t("price.field.displayName")}><Input value={official.displayName} placeholder={t("price.placeholder.displayName")} onChange={(e) => setOfficial({ ...official, displayName: e.target.value })} /></Field>
           <div className="grid grid-cols-2 gap-3">
             <Field label={t("price.field.inputPrice")}><Input value={official.inputPrice} onChange={(e) => setOfficial({ ...official, inputPrice: e.target.value })} /></Field>
             <Field label={t("price.field.outputPrice")}><Input value={official.outputPrice} onChange={(e) => setOfficial({ ...official, outputPrice: e.target.value })} /></Field>
@@ -375,10 +384,30 @@ export default function Page() {
         </div>}
       </Drawer>
 
-      <Drawer open={detail != null} onClose={() => setDetail(null)} title={detail ? t("price.detail.title", { model: detail.model }) : ""}
+      <Drawer open={detail != null} onClose={() => setDetail(null)} title={detail ? t("price.detail.title", { model: detail.displayName || detail.model }) : ""}
         description={t("price.detail.description")}
         footer={<Button variant="outline" onClick={() => setDetail(null)}>{t("common.action.close")}</Button>}>
         {detail && <div className="space-y-2">
+          {(detail.hints ?? []).map((h) => <Alert key={h} tone="warning">{t(`price.hint.${h}.detail`)}</Alert>)}
+          <div className="text-xs font-semibold">{t("price.channels.title")}</div>
+          {(detail.channels ?? []).length === 0 && <p className="text-xs text-[var(--muted-foreground)]">{t("price.noChannel")}</p>}
+          <div className="divide-y divide-[var(--border)] rounded-lg border border-[var(--border)]">
+            {(detail.channels ?? []).map((c) => {
+              const cooling = c.cooldownUntil > Date.now();
+              const health = c.status !== 1 ? t("common.status.disabled") : cooling ? t("price.channels.cooling") : c.lastProbeOk === 0 ? t("channel.probe.unreachable") : t("price.channels.healthy");
+              return (
+                <div key={c.channelId} className="flex items-center justify-between gap-2 p-2.5 text-xs">
+                  <span className="min-w-0"><span className="font-medium">{c.name}</span> <span className="text-[var(--muted-foreground)]">{t("price.channels.route", { priority: c.priority, weight: c.weight })}</span></span>
+                  <span className="shrink-0 text-right">
+                    <span className="tabular-nums">${c.costInput} / ${c.costOutput}</span>
+                    <span className="ml-2 text-[var(--muted-foreground)]">{c.costSource === "channel" ? t("price.channels.costChannel") : t("price.channels.costOfficial", { discount: c.discount })}{c.stale ? ` · ${t("channelCost.stale")}` : ""}</span>
+                    <span className="ml-2">{health}</span>
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+          {detail.flagged.length > 0 && <div className="pt-2 text-xs font-semibold">{t("price.detail.problems")}</div>}
           {detail.flagged.map((c) => (
             <div key={`${c.groupCode}-${c.channelId}`} className="rounded-lg border border-[var(--border)] p-3 text-xs">
               <div className="flex items-center justify-between">
