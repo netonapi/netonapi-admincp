@@ -30,6 +30,19 @@ async function probe(id: number, name: string, describeError: (error: unknown) =
   }
 }
 
+/** 手动恢复：渠道重新启用，被自动禁用的 Key 复位（失败计数清零）。手动禁用的 Key 不动。 */
+async function revive(row: ResourceRecord, done: () => Promise<void>, describeError: (error: unknown) => string, t: Translate) {
+  const name = String(row.name ?? row.id);
+  if (!window.confirm(t("channel.revive.confirm", { name }))) return;
+  try {
+    await apiWrite(`/admin/gateway/channel/revive/${row.id}`, "PUT", {});
+    await done();
+    window.alert(t("channel.revive.done", { name }));
+  } catch (cause) {
+    window.alert(t("channel.revive.failed", { error: describeError(cause) }));
+  }
+}
+
 interface ModelsResult { ok: boolean; status?: number | null; models: string[]; error?: string | null; errorCode?: string | null }
 
 /**
@@ -60,6 +73,7 @@ async function pullModels(row: ResourceRecord, done: () => Promise<void>, descri
 }
 
 import { ChannelCostDrawer, type CostChannel } from "./channel-cost-drawer";
+import { ChannelKeyDrawer, splitKeys, type KeyChannel } from "./channel-key-drawer";
 
 export default function Page() {
   const describeError = useDescribeError("gateway");
@@ -67,12 +81,16 @@ export default function Page() {
   const queryClient = useQueryClient();
   const refresh = React.useCallback(() => queryClient.invalidateQueries({ queryKey: ["gateway-channel"] }), [queryClient]);
   const [costChannel, setCostChannel] = React.useState<CostChannel | null>(null);
+  const [keyChannel, setKeyChannel] = React.useState<KeyChannel | null>(null);
   return <><ResourcePage config={{ resourceKey: "gateway-channel",
   rowActions: (row) => ({ primary: [
-    { label: t("channel.action.cost"), onClick: () => setCostChannel(row as unknown as CostChannel) },
+    // 行内直接摆「Key」和资源页追加的「编辑」（最多两个），其余进「更多」
+    { label: t("channel.action.keys"), onClick: () => setKeyChannel(row as unknown as KeyChannel) },
   ], more: [
+    { label: t("channel.action.cost"), onClick: () => setCostChannel(row as unknown as CostChannel) },
     { label: t("channel.action.probe"), kind: "retry", onClick: () => { void probe(row.id, String(row.name ?? row.id), describeError, t); } },
     { label: t("channel.action.pullModels"), kind: "download", onClick: () => { void pullModels(row, refresh, describeError, t); } },
+    { label: t("channel.action.revive"), kind: "retry", onClick: () => { void revive(row, refresh, describeError, t); } },
   ] }), eyebrow: t("common.eyebrow"), title: t("channel.title"), description: t("channel.description"), endpoint: "/gateway/channel", errorNamespace: "gateway", listPath: "list", permissions: { page: "gateway:channel:query", create: "gateway:channel:create", update: "gateway:channel:update", delete: "gateway:channel:delete" }, fields: [
   { key: "name", label: t("common.field.name"), required: true },
   { key: "type", label: t("channel.field.type"), type: "select", defaultValue: "openai_compatible", options: [
@@ -80,6 +98,8 @@ export default function Page() {
     { label: "Gemini", value: "gemini" }, { label: "Azure OpenAI", value: "azure_openai" },
     { label: t("channel.type.bedrock"), value: "bedrock" }, { label: t("channel.type.vertexAnthropic"), value: "vertex_anthropic" }, { label: t("channel.type.vertexGemini"), value: "vertex_gemini" } ] },
   { key: "baseUrl", label: "Base URL", required: true },
+  // 新建时一并给出初始 Key（可多把）；已有渠道的 Key 在行操作「Key」里增删
+  { key: "keys", label: t("channel.field.keys"), type: "textarea", table: false, createOnly: true, placeholder: t("channel.placeholder.keysCreate") },
   { key: "groups", label: t("channel.field.groups"), defaultValue: "default" },
   { key: "models", label: t("channel.field.models"), type: "textarea" },
   { key: "capabilities", label: t("channel.field.capabilities"), defaultValue: "chat", placeholder: "chat,embeddings,images,rerank,audio" },
@@ -104,7 +124,12 @@ export default function Page() {
   { key: "status", label: t("common.field.status"), type: "select", defaultValue: 1, format: "status", options: [
     { label: t("common.status.enabled"), value: 1 }, { label: t("common.status.disabled"), value: 0 }, { label: t("common.status.suspended"), value: 2 } ] },
   { key: "remark", label: t("common.field.remark"), type: "textarea", table: false },
-] }} />
+ ], mapSave: (record) => {
+    // 后端要的是 Key 数组；编辑时 keys 不在表单里（createOnly），原样不带
+    if (record.id || record.keys === undefined) return record;
+    return { ...record, keys: splitKeys(String(record.keys ?? "")) };
+  } }} />
+  <ChannelKeyDrawer channel={keyChannel} onClose={() => setKeyChannel(null)} />
   <ChannelCostDrawer channel={costChannel} onClose={() => { setCostChannel(null); void refresh(); }} />
   </>;
 }
