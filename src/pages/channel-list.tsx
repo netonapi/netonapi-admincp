@@ -46,27 +46,16 @@ async function revive(row: ResourceRecord, done: () => Promise<void>, describeEr
 interface ModelsResult { ok: boolean; status?: number | null; models: string[]; error?: string | null; errorCode?: string | null }
 
 /**
- * 拉取上游模型清单并并入渠道的 models：新增的追加在后面，已有的保持原顺序。
- * 一步确认再写库 —— 上游列出来的往往包含大量用不上的模型（embedding、旧版本、微调号），
- * 全量覆盖会把运营精心挑过的清单冲掉，所以只做「并入」，删由运营手动编辑。
+ * 拉取上游模型清单，后端记进渠道的「上游支持的模型」（supportedModels）。只是给模型挑上游时的候选，
+ * 不并进服务清单：对外提供哪些模型、由哪个上游承载，在「模型与定价」里按模型设置（docs/model-catalog-design.md）。
  */
 async function pullModels(row: ResourceRecord, done: () => Promise<void>, describeError: (error: unknown) => string, t: Translate) {
   const name = String(row.name ?? row.id);
   try {
     const r = await apiWrite<ModelsResult>(`/admin/gateway/channel/models/${row.id}`, "POST", {});
     if (!r.ok) { window.alert(t("channel.pull.failed", { name, status: r.status ?? t("channel.noResponse"), error: failureText(r, t) })); return; }
-    const current = String(row.models ?? "").split(",").map((m) => m.trim()).filter(Boolean);
-    const fresh = r.models.filter((m) => !current.includes(m));
-    if (fresh.length === 0) { window.alert(t("channel.pull.upToDate", { name, count: r.models.length })); return; }
-    const preview = fresh.slice(0, 40).join("\n") + (fresh.length > 40 ? `\n${t("channel.pull.more", { count: fresh.length })}` : "");
-    if (!window.confirm(t("channel.pull.confirm", { name, count: fresh.length, preview }))) return;
-    // 只发 UpdateChannelRequest 认识的字段：后端 @Body 对未知键直接 400，整行连 status/createdAt 一起发会被拒
-    const keep = ["id", "name", "type", "baseUrl", "groups", "capabilities", "modelMapping", "paramOverride", "priority", "weight", "proxyUrl", "apiVersion", "costDiscount", "remark"] as const;
-    const body: Record<string, unknown> = {};
-    for (const k of keep) if (row[k] !== undefined) body[k] = row[k];
-    body.models = [...current, ...fresh].join(",");
-    await apiWrite("/admin/gateway/channel/update", "PUT", body);
     await done();
+    window.alert(t("channel.models.pulled", { count: r.models.length }));
   } catch (cause) {
     window.alert(t("channel.pull.requestFailed", { error: describeError(cause) }));
   }
@@ -101,7 +90,8 @@ export default function Page() {
   // 新建时一并给出初始 Key（可多把）；已有渠道的 Key 在行操作「Key」里增删
   { key: "keys", label: t("channel.field.keys"), type: "textarea", table: false, createOnly: true, placeholder: t("channel.placeholder.keysCreate") },
   { key: "groups", label: t("channel.field.groups"), defaultValue: "default" },
-  { key: "models", label: t("channel.field.models"), type: "textarea" },
+  { key: "models", label: t("channel.field.models"), type: "textarea", placeholder: t("channel.placeholder.models") },
+  { key: "supportedModels", label: t("channel.field.supportedModels"), type: "textarea", editable: false, table: false },
   { key: "capabilities", label: t("channel.field.capabilities"), defaultValue: "chat", placeholder: "chat,embeddings,images,rerank,audio" },
   { key: "modelMapping", label: t("channel.field.modelMapping"), type: "textarea", table: false },
   { key: "paramOverride", label: t("channel.field.paramOverride"), type: "textarea", table: false },

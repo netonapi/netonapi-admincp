@@ -54,7 +54,11 @@ interface CheckRow {
   status: "OK" | "THIN" | "LOSS" | "UNSERVED" | "INVALID"; worst?: Combo | null; flagged: Combo[]; comboCount: number;
   displayName?: string | null; channels?: RouteRow[]; hints?: string[];
   saleTiers?: { maxPromptTokens: number | null; input: string; output: string }[] | null;
+  listed?: number;
 }
+/** 某个上游相对一个模型的状态（GET /admin/gateway/channel/model-routes）。 */
+interface ModelRoute { channelId: number; name: string; type: string; status: number; priority: number; supported: boolean; serving: boolean; upstreamModel?: string | null }
+interface RouteEdit extends ModelRoute { selected: boolean; upstream: string }
 interface RouteRow {
   channelId: number; name: string; priority: number; weight: number; status: number; cooldownUntil: number; lastProbeOk?: number | null;
   costInput: string; costOutput: string; costSource: string; configuredSource: string; discount: string; stale: boolean;
@@ -65,8 +69,8 @@ interface PriceRow {
   perRequestPrice?: number | null; defaultMaxOutputTokens?: number | null; saleOverride?: string | null; source?: string; displayName?: string | null; tiers?: string | null;
 }
 
-interface OfficialForm { id: number; model: string; displayName: string; inputPrice: string; outputPrice: string; cacheReadPrice: string; cacheWritePrice: string; perRequestPrice: string; defaultMaxOutputTokens: string }
-const EMPTY_OFFICIAL: OfficialForm = { id: 0, model: "", displayName: "", inputPrice: "0", outputPrice: "0", cacheReadPrice: "0", cacheWritePrice: "0", perRequestPrice: "", defaultMaxOutputTokens: "" };
+interface OfficialForm { id: number; listed: boolean; model: string; displayName: string; inputPrice: string; outputPrice: string; cacheReadPrice: string; cacheWritePrice: string; perRequestPrice: string; defaultMaxOutputTokens: string }
+const EMPTY_OFFICIAL: OfficialForm = { id: 0, listed: true, model: "", displayName: "", inputPrice: "0", outputPrice: "0", cacheReadPrice: "0", cacheWritePrice: "0", perRequestPrice: "", defaultMaxOutputTokens: "" };
 
 interface CalRow {
   model: string; status: "SAME" | "CHANGED" | "NOT_FOUND" | "NEW" | "UNPARSABLE"; note?: string | null; sourceKey?: string | null;
@@ -118,6 +122,10 @@ export default function Page() {
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const [filter, setFilter] = React.useState<"all" | "problem">("all");
+  // 默认只看上架的模型：价格库（导入 / 校准来的官方价）只是参考，不对外
+  const [shelf, setShelf] = React.useState<"listed" | "library" | "all">("listed");
+  const [routes, setRoutes] = React.useState<{ row: CheckRow; items: RouteEdit[] } | null>(null);
+  const [routesOnlySupported, setRoutesOnlySupported] = React.useState(true);
   const [keyword, setKeyword] = React.useState("");
   const [official, setOfficial] = React.useState<OfficialForm | null>(null);
   const [sale, setSale] = React.useState<SaleForm | null>(null);
@@ -177,7 +185,7 @@ export default function Page() {
     try {
       const p = await apiFetch<PriceRow>(`/admin/gateway/price/get/${row.id}`);
       setOfficial({
-        id: p.id, model: p.model, displayName: p.displayName ?? "", inputPrice: p.inputPrice, outputPrice: p.outputPrice, cacheReadPrice: p.cacheReadPrice,
+        id: p.id, listed: row.listed !== 0, model: p.model, displayName: p.displayName ?? "", inputPrice: p.inputPrice, outputPrice: p.outputPrice, cacheReadPrice: p.cacheReadPrice,
         cacheWritePrice: p.cacheWritePrice, perRequestPrice: p.perRequestPrice != null ? String(p.perRequestPrice) : "",
         defaultMaxOutputTokens: p.defaultMaxOutputTokens != null ? String(p.defaultMaxOutputTokens) : "",
       });
@@ -193,6 +201,7 @@ export default function Page() {
       cacheReadPrice: official.cacheReadPrice || "0", cacheWritePrice: official.cacheWritePrice || "0",
       perRequestPrice: official.perRequestPrice.trim() ? Number(official.perRequestPrice) : null,
       defaultMaxOutputTokens: official.defaultMaxOutputTokens.trim() ? Number(official.defaultMaxOutputTokens) : null,
+      ...(official.id ? {} : { listed: official.listed ? 1 : 0 }),
     };
     try {
       await apiWrite<unknown>(`/admin/gateway/price/${official.id ? "update" : "create"}`, official.id ? "PUT" : "POST", body);
@@ -276,21 +285,62 @@ export default function Page() {
     return parts.join("；") || "-";
   }
 
+  async function setListed(row: CheckRow, listed: boolean) {
+    try { await apiWrite<unknown>(`/admin/gateway/price/listed?id=${row.id}&listed=${listed ? 1 : 0}`, "PUT"); await load(); }
+    catch (cause) { setError(describeError(cause)); }
+  }
+
+  async function openRoutes(row: CheckRow) {
+    setFormError(null);
+    try {
+      const list = await apiFetch<ModelRoute[]>(`/admin/gateway/channel/model-routes?model=${encodeURIComponent(row.model)}`);
+      setRoutesOnlySupported(list.some((r) => r.supported || r.serving));
+      setRoutes({ row, items: list.map((r) => ({ ...r, selected: r.serving, upstream: r.upstreamModel ?? "" })) });
+    } catch (cause) { setError(describeError(cause)); }
+  }
+
+  async function saveRoutes() {
+    if (!routes) return;
+    setSaving(true); setFormError(null);
+    try {
+      await apiWrite<unknown>("/admin/gateway/channel/model-routes", "PUT", {
+        model: routes.row.model,
+        routes: routes.items.filter((r) => r.selected).map((r) => ({ channelId: r.channelId, upstreamModel: r.upstream.trim() || null })),
+      });
+      setRoutes(null); await load();
+    } catch (cause) { setFormError(describeError(cause)); } finally { setSaving(false); }
+  }
+
+  function editRoute(channelId: number, patch: Partial<RouteEdit>) {
+    if (!routes) return;
+    setRoutes({ ...routes, items: routes.items.map((r) => r.channelId === channelId ? { ...r, ...patch } : r) });
+  }
+
   async function remove(row: CheckRow) {
     try { await apiWrite<unknown>(`/admin/gateway/price/delete/${row.id}`, "DELETE"); setDeleting(null); await load(); }
     catch (cause) { setError(describeError(cause)); setDeleting(null); }
   }
 
+  const isListed = (r: CheckRow) => r.listed !== 0;
+  const listedCount = (check?.rows ?? []).filter(isListed).length;
   const rows = (check?.rows ?? []).filter((r) =>
+    (shelf === "all" || (shelf === "listed") === isListed(r)) &&
     (filter === "all" || r.status === "LOSS" || r.status === "THIN" || r.status === "INVALID") &&
     (!keyword.trim() || r.model.toLowerCase().includes(keyword.trim().toLowerCase())));
 
-  const actions = (row: CheckRow): RowAction[] => [
-    ...(canUpdate ? [{ label: t("price.action.sale"), tone: "primary" as const, onClick: () => void openSale(row) }] : []),
-    { label: t("price.action.channels"), onClick: () => setDetail(row) },
-    ...(canUpdate ? [{ label: t("price.action.editOfficial"), onClick: () => void openOfficial(row) }] : []),
-  ];
+  const actions = (row: CheckRow): RowAction[] => !isListed(row)
+    ? [
+      ...(canUpdate ? [{ label: t("price.action.list"), tone: "primary" as const, onClick: () => void setListed(row, true) }] : []),
+      ...(canUpdate ? [{ label: t("price.action.editOfficial"), onClick: () => void openOfficial(row) }] : []),
+    ]
+    : [
+      ...(canUpdate ? [{ label: t("price.action.routes"), tone: "primary" as const, onClick: () => void openRoutes(row) }] : []),
+      ...(canUpdate ? [{ label: t("price.action.sale"), onClick: () => void openSale(row) }] : []),
+    ];
   const more = (row: CheckRow): RowAction[] => [
+    ...(isListed(row) ? [{ label: t("price.action.channels"), onClick: () => setDetail(row) }] : []),
+    ...(isListed(row) && canUpdate ? [{ label: t("price.action.editOfficial"), onClick: () => void openOfficial(row) }] : []),
+    ...(isListed(row) && canUpdate ? [{ label: t("price.action.unlist"), onClick: () => void setListed(row, false) }] : []),
     { label: t("price.action.history"), onClick: () => void openHistory(row) },
     ...(canDelete ? [{ label: t("common.action.delete"), danger: true, kind: "delete" as const, onClick: () => setDeleting(row) }] : []),
   ];
@@ -307,7 +357,7 @@ export default function Page() {
       {(r.saleTiers ?? []).slice(1).map((tier, i) => <div key={i} className="text-[11px] text-[var(--muted-foreground)] tabular-nums">{t("price.tier.above", { tokens: ((r.saleTiers ?? [])[i]?.maxPromptTokens ?? 0).toLocaleString(), input: tier.input, output: tier.output })}</div>)}
     </div> : "-" },
     { key: "worst", header: t("price.column.worst"), cell: (r) => r.worst ? <div className="space-y-0.5"><div className="tabular-nums text-xs font-medium">{pct(r.worst.marginBp)}</div><div className="text-[11px] text-[var(--muted-foreground)]">{comboText(r.worst)}</div></div> : <span className="text-xs text-[var(--muted-foreground)]">{t("price.noChannel")}</span> },
-    { key: "status", header: t("common.field.status"), cell: (r) => <span className={`inline-flex rounded-full px-2 py-0.5 text-[11px] font-medium ${STATUS_TONE[r.status] ?? ""}`}>{t(`price.status.${r.status}`)}</span> },
+    { key: "status", header: t("common.field.status"), cell: (r) => !isListed(r) ? <span className={`inline-flex rounded-full px-2 py-0.5 text-[11px] font-medium ${STATUS_TONE.UNSERVED}`}>{t("price.shelf.libraryTag")}</span> : <span className={`inline-flex rounded-full px-2 py-0.5 text-[11px] font-medium ${STATUS_TONE[r.status] ?? ""}`}>{t(`price.status.${r.status}`)}</span> },
     { key: "actions", header: t("common.field.actions"), headerClassName: "text-right", className: "text-right", cell: (row: CheckRow) => <RowActions primary={actions(row)} more={more(row)} /> },
   ];
 
@@ -331,8 +381,14 @@ export default function Page() {
         <span className="text-amber-600">{t("price.summary.thin", { count: check.thin })}</span>
         <span className="text-emerald-600">{t("price.summary.ok", { count: check.ok })}</span>
         <span className="text-[var(--muted-foreground)]">{t("price.summary.unserved", { count: check.unserved })}</span>
+        <span className="text-[var(--muted-foreground)]">{t("price.summary.shelf", { listed: listedCount, library: check.rows.length - listedCount })}</span>
         <div className="ml-auto flex items-center gap-2">
           <Input value={keyword} onChange={(e) => setKeyword(e.target.value)} placeholder={t("price.filter.keyword")} className="h-8 w-48" />
+          <Select value={shelf} onChange={(e) => setShelf(e.target.value as "listed" | "library" | "all")} className="h-8">
+            <option value="listed">{t("price.shelf.listed")}</option>
+            <option value="library">{t("price.shelf.library")}</option>
+            <option value="all">{t("price.shelf.all")}</option>
+          </Select>
           <Select value={filter} onChange={(e) => setFilter(e.target.value as "all" | "problem")} className="h-8">
             <option value="all">{t("price.filter.all")}</option>
             <option value="problem">{t("price.filter.problem")}</option>
@@ -340,7 +396,38 @@ export default function Page() {
         </div>
       </div>}
 
+      {check && shelf === "listed" && listedCount === 0 && <Alert tone="info">{t("price.shelf.emptyHint", { count: check.rows.length })}</Alert>}
+
       <DataTable columns={columns} rows={rows} rowKey={(r) => r.id} loading={loading} error={error ?? undefined} />
+
+      <Drawer open={routes != null} onClose={() => setRoutes(null)}
+        title={routes ? t("price.routes.title", { model: routes.row.displayName || routes.row.model }) : ""}
+        description={t("price.routes.description")}
+        footer={<><Button variant="outline" onClick={() => setRoutes(null)}>{t("common.action.cancel")}</Button><Button onClick={() => void saveRoutes()} disabled={saving}>{saving ? t("common.action.saving") : t("common.action.save")}</Button></>}>
+        {routes && <div className="space-y-3">
+          {formError && <Alert tone="error">{formError}</Alert>}
+          <div className="flex items-center justify-between text-xs text-[var(--muted-foreground)]">
+            <span>{t("price.routes.count", { count: routes.items.filter((r) => r.selected).length })}</span>
+            <label className="flex items-center gap-1"><input type="checkbox" checked={routesOnlySupported} onChange={(e) => setRoutesOnlySupported(e.target.checked)} />{t("price.routes.onlySupported")}</label>
+          </div>
+          {routes.items.length === 0 && <p className="text-sm text-[var(--muted-foreground)]">{t("price.routes.noChannel")}</p>}
+          <div className="divide-y divide-[var(--border)] rounded-lg border border-[var(--border)]">
+            {routes.items.filter((r) => !routesOnlySupported || r.supported || r.selected).map((r) => (
+              <div key={r.channelId} className="space-y-2 p-2.5 text-xs">
+                <label className="flex cursor-pointer items-center gap-2">
+                  <input type="checkbox" checked={r.selected} onChange={(e) => editRoute(r.channelId, { selected: e.target.checked })} />
+                  <span className="min-w-0 flex-1"><span className="font-medium">{r.name}</span> <span className="text-[var(--muted-foreground)]">{t("price.routes.meta", { type: r.type, priority: r.priority })}</span></span>
+                  {r.status !== 1 && <span className="rounded-full bg-[var(--muted)] px-1.5 py-0.5 text-[10px] text-[var(--muted-foreground)]">{t("common.status.disabled")}</span>}
+                  <span className={`rounded-full px-1.5 py-0.5 text-[10px] ${r.supported ? STATUS_TONE.OK : STATUS_TONE.THIN}`}>{t(r.supported ? "price.routes.supported" : "price.routes.unsupported")}</span>
+                </label>
+                {r.selected && <Input value={r.upstream} placeholder={t("price.routes.upstreamPlaceholder", { model: routes.row.model })} className="h-8"
+                  onChange={(e) => editRoute(r.channelId, { upstream: e.target.value })} />}
+              </div>
+            ))}
+          </div>
+          <p className="text-xs text-[var(--muted-foreground)]">{t("price.routes.hint")}</p>
+        </div>}
+      </Drawer>
 
       <Drawer open={official != null} onClose={() => setOfficial(null)}
         title={official?.id ? t("price.official.editTitle", { model: official.model }) : t("price.action.create")}
@@ -349,6 +436,7 @@ export default function Page() {
         {official && <div className="space-y-4">
           {formError && <Alert tone="error">{formError}</Alert>}
           <Field label={t("common.field.model")}><Input value={official.model} readOnly={official.id !== 0} onChange={(e) => setOfficial({ ...official, model: e.target.value })} /></Field>
+          {official.id === 0 && <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={official.listed} onChange={(e) => setOfficial({ ...official, listed: e.target.checked })} />{t("price.official.listed")}</label>}
           <Field label={t("price.field.displayName")}><Input value={official.displayName} placeholder={t("price.placeholder.displayName")} onChange={(e) => setOfficial({ ...official, displayName: e.target.value })} /></Field>
           <div className="grid grid-cols-2 gap-3">
             <Field label={t("price.field.inputPrice")}><Input value={official.inputPrice} onChange={(e) => setOfficial({ ...official, inputPrice: e.target.value })} /></Field>
