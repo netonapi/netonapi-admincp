@@ -55,6 +55,7 @@ interface CheckRow {
   displayName?: string | null; channels?: RouteRow[]; hints?: string[];
   saleTiers?: { maxPromptTokens: number | null; input: string; output: string }[] | null;
   listed?: number;
+  access?: string;
 }
 /** 某个上游相对一个模型的状态（GET /admin/gateway/channel/model-routes）。 */
 interface ModelRoute { channelId: number; name: string; type: string; status: number; priority: number; supported: boolean; serving: boolean; upstreamModel?: string | null }
@@ -285,6 +286,11 @@ export default function Page() {
     return parts.join("；") || "-";
   }
 
+  async function setAccess(row: CheckRow, access: "ALL" | "RULES_ONLY") {
+    try { await apiWrite<unknown>(`/admin/gateway/price/access?id=${row.id}&access=${access}`, "PUT"); await load(); }
+    catch (cause) { setError(describeError(cause)); }
+  }
+
   async function setListed(row: CheckRow, listed: boolean) {
     try { await apiWrite<unknown>(`/admin/gateway/price/listed?id=${row.id}&listed=${listed ? 1 : 0}`, "PUT"); await load(); }
     catch (cause) { setError(describeError(cause)); }
@@ -341,6 +347,9 @@ export default function Page() {
     ...(isListed(row) ? [{ label: t("price.action.channels"), onClick: () => setDetail(row) }] : []),
     ...(isListed(row) && canUpdate ? [{ label: t("price.action.editOfficial"), onClick: () => void openOfficial(row) }] : []),
     ...(isListed(row) && canUpdate ? [{ label: t("price.action.unlist"), onClick: () => void setListed(row, false) }] : []),
+    ...(isListed(row) && canUpdate ? [row.access === "RULES_ONLY"
+      ? { label: t("price.action.openAll"), onClick: () => void setAccess(row, "ALL") }
+      : { label: t("price.action.restrict"), onClick: () => void setAccess(row, "RULES_ONLY") }] : []),
     { label: t("price.action.history"), onClick: () => void openHistory(row) },
     ...(canDelete ? [{ label: t("common.action.delete"), danger: true, kind: "delete" as const, onClick: () => setDeleting(row) }] : []),
   ];
@@ -348,6 +357,7 @@ export default function Page() {
   const columns: DataColumn<CheckRow>[] = [
     { key: "model", header: t("common.field.model"), cell: (r) => <div>
       {r.displayName ? <><div className="text-sm font-medium">{r.displayName}</div><code className="text-[11px] text-[var(--muted-foreground)]">{r.model}</code></> : <code className="text-xs">{r.model}</code>}
+      {r.access === "RULES_ONLY" && <span className="mt-1 inline-flex rounded bg-amber-50 px-1.5 py-0.5 text-[10px] text-amber-700 dark:bg-amber-950/40 dark:text-amber-300" title={t("price.restrictedHint")}>{t("rule.restricted")}</span>}
       {(r.hints ?? []).length > 0 && <div className="mt-1 flex flex-wrap gap-1">{(r.hints ?? []).map((h) => <span key={h} className="rounded-full bg-amber-50 px-1.5 py-0.5 text-[10px] text-amber-700 dark:bg-amber-950/40 dark:text-amber-300">{t(`price.hint.${h}`)}</span>)}</div>}
     </div> },
     { key: "official", header: t("price.column.official"), cell: (r) => r.perRequestPrice != null ? t("price.perRequest", { price: (r.perRequestPrice / 1e6).toFixed(4) }) : <span className="tabular-nums">${r.officialInput} / ${r.officialOutput}</span> },

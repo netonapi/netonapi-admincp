@@ -3,6 +3,8 @@ import * as React from "react";
 import { ResourcePage, type ResourceField } from "@neton/application-front-resource";
 import { apiFetch } from "@neton/application-front-runtime/client";
 import { useT } from "@neton/application-front-runtime/i18n";
+import { Drawer } from "@neton/application-front-kit";
+import { PriceRulesEditor } from "./price-rules-editor";
 
 /**
  * 计价组：一把 API Key 绑一个分组，分组决定走哪些渠道、按什么倍率计价。
@@ -19,6 +21,7 @@ import { useT } from "@neton/application-front-runtime/i18n";
  */
 export default function Page() {
   const t = useT("gateway");
+  const [pricing, setPricing] = React.useState<{ code: string; name: string } | null>(null);
   const [memberGroups, setMemberGroups] = React.useState<{ id: number; name: string }[] | null>(null);
   React.useEffect(() => {
     apiFetch<{ id: number; name: string }[]>("/admin/member/group/list-all-simple").then(setMemberGroups).catch(() => setMemberGroups(null));
@@ -26,11 +29,15 @@ export default function Page() {
   const memberField: ResourceField = memberGroups && memberGroups.length > 0
     ? { key: "memberGroupId", label: t("group.field.memberGroupId"), type: "select", options: [{ label: t("group.option.noMemberGroup"), value: "" }, ...memberGroups.map((g) => ({ label: `${g.name} (#${g.id})`, value: g.id }))] }
     : { key: "memberGroupId", label: t("group.field.memberGroupId"), type: "number" };
-  return <ResourcePage config={{ resourceKey: "gateway-group", eyebrow: t("common.eyebrow"), title: t("group.title"), description: t("group.description"), endpoint: "/gateway/group", errorNamespace: "gateway", listPath: "list", permissions: { page: "gateway:group:query", create: "gateway:group:create", update: "gateway:group:update", delete: "gateway:group:delete" }, mapSave: (r) => ({ ...r, memberGroupId: Number(r.memberGroupId) > 0 ? Number(r.memberGroupId) : null, selectable: Number(r.selectable) === 1 ? 1 : 0 }), fields: [
+  return <><ResourcePage config={{ resourceKey: "gateway-group", rowActions: (row) => ({ primary: [{ label: t("group.action.modelPrices"), onClick: () => setPricing({ code: String(row.code), name: String(row.name) }) }] }), eyebrow: t("common.eyebrow"), title: t("group.title"), description: t("group.description"), endpoint: "/gateway/group", errorNamespace: "gateway", listPath: "list", permissions: { page: "gateway:group:query", create: "gateway:group:create", update: "gateway:group:update", delete: "gateway:group:delete" }, mapSave: (r) => ({ ...r, memberGroupId: Number(r.memberGroupId) > 0 ? Number(r.memberGroupId) : null, selectable: Number(r.selectable) === 1 ? 1 : 0 }), fields: [
   { key: "code", label: t("group.field.code"), required: true },
   { key: "name", label: t("group.field.name"), required: true },
   { key: "ratio", label: t("group.field.ratio"), defaultValue: "1.0", required: true },
   { key: "selectable", label: t("group.field.selectable"), type: "select", defaultValue: 0, options: [{ label: t("group.selectable.yes"), value: 1 }, { label: t("group.selectable.no"), value: 0 }] },
   memberField,
   { key: "description", label: t("group.field.description"), type: "textarea", table: false, placeholder: t("group.placeholder.description") },
-] }} />; }
+] }} />
+  <Drawer open={pricing != null} onClose={() => setPricing(null)} widthClassName="max-w-5xl"
+    title={pricing ? t("group.modelPrices.title", { name: pricing.name, code: pricing.code }) : ""} description={t("group.modelPrices.description")}>
+    {pricing && <PriceRulesEditor subjectType="GROUP" subjectId={pricing.code} />}
+  </Drawer></>; }
