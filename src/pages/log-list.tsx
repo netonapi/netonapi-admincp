@@ -38,18 +38,32 @@ function usd(micro: number): string {
   return micro < 0 ? `-${s}` : s;
 }
 
-/** 手输金额旁的实时换算。整块 UI 里最值钱的一行提示：全站金额都是裸 μUSD，
- *  把 30000 读成「三万美元」而不是「三美分」正是撤回功能要收拾的那种误发。 */
+/** 查用户时「没有这个用户名」：本地文案，与接口错误区分开。 */
+class UserNotFound extends Error {}
+
+/** 美元 → μUSD；非法或不足 1 μUSD 返回 null。 */
+function toMicro(value: string): number | null {
+  const n = Number(value);
+  if (value.trim() === "" || !Number.isFinite(n)) return null;
+  const micro = Math.round(n * 1_000_000);
+  return micro > 0 ? micro : null;
+}
+
+/** 金额按美元填（运营日常的单位），旁边实时显示换算后的 μUSD，提交的是 μUSD。 */
 function AmountField({ value, onChange }: { value: string; onChange: (v: string) => void }) {
   const t = useT("gateway");
-  const n = Number(value);
-  const hint = value.trim() !== "" && Number.isFinite(n)
-    ? t("log.amount.converted", { usd: usd(n), micro: n.toLocaleString("en-US") })
-    : t("log.amount.unitHint");
+  const micro = toMicro(value);
+  const hint = micro != null ? t("log.amount.converted", { usd: usd(micro), micro: micro.toLocaleString("en-US") }) : t("log.amount.unitHint");
   return <div className="space-y-1">
-    <Input type="number" min={1} step={1} value={value} placeholder={t("log.amount.placeholder")} onChange={(e) => onChange(e.target.value)} />
+    <Input inputMode="decimal" value={value} placeholder={t("log.amount.placeholder")} onChange={(e) => onChange(e.target.value)} />
     <p className="text-xs text-[var(--muted-foreground)]">{hint}</p>
   </div>;
+}
+
+/** 凭据号：前缀 + 本地时间到秒。每次打开表单生成一次，同一张表单重复提交仍是同一个幂等键。 */
+function newRef(prefix: "manual" | "revoke"): string {
+  const d = new Date(); const p = (n: number) => String(n).padStart(2, "0");
+  return `${prefix}:${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}-${p(d.getHours())}${p(d.getMinutes())}${p(d.getSeconds())}`;
 }
 
 /**
@@ -87,13 +101,23 @@ function QuotaOps() {
   // 否则就是条件调用 hook。
   if (!canRead && !canGrant && !canRevoke) return null;
 
-  const targetUid = Number(uid);
-  const uidValid = Number.isInteger(targetUid) && targetUid > 0;
+  const uidValid = uid.trim() !== "";
+
+  /** 输入可以是用户 ID，也可以是用户名（按用户名精确匹配一个账号）。 */
+  async function resolveUser(input: string): Promise<number> {
+    const v = input.trim();
+    if (/^\d+$/.test(v)) return Number(v);
+    const page = await apiFetch<{ list: { id: number; username?: string | null }[] }>(`/admin/account/user/page?pageNo=1&pageSize=10&username=${encodeURIComponent(v)}`);
+    const hit = page.list.find((u) => u.username === v);
+    if (!hit) throw new UserNotFound(t("log.quota.error.userNotFound", { user: v }));
+    return hit.id;
+  }
   const available = account ? account.balance - account.reservedBalance : 0;
 
-  async function lookup(nextUid: number) {
+  async function lookup(nextUid: number | string) {
     setLoading(true); setError(null); setNotice(null);
     try {
+      if (typeof nextUid === "string") nextUid = await resolveUser(nextUid);
       const acc = await apiFetch<AccountVO>(`/admin/gateway/quota/get-by-user/${nextUid}`);
       setAccount(acc);
       try {
@@ -103,14 +127,14 @@ function QuotaOps() {
         setTxs([]);
       }
     } catch (cause) {
-      setError(describeError(cause)); setAccount(null); setTxs([]);
+      setError(cause instanceof UserNotFound ? cause.message : describeError(cause)); setAccount(null); setTxs([]);
     } finally { setLoading(false); }
   }
 
   async function submit() {
     if (!account || op == null) return;
-    const amt = Number(amount);
-    if (!Number.isInteger(amt) || amt <= 0) { setError(t("log.quota.error.amount")); return; }
+    const amt = toMicro(amount);
+    if (amt == null) { setError(t("log.quota.error.amount")); return; }
     if (!ref.trim()) { setError(t("log.quota.error.ref")); return; }
     setSaving(true); setError(null);
     try {
@@ -152,14 +176,14 @@ function QuotaOps() {
         <CardTitle>{t("log.quota.title")}</CardTitle>
         <div className="flex flex-wrap items-end gap-2">
           <div className="w-40">
-            <Input type="number" min={1} step={1} value={uid} placeholder={t("common.field.userId")}
+            <Input value={uid} placeholder={t("log.quota.userPlaceholder")} onKeyDown={(e) => { if (e.key === "Enter" && uidValid) void lookup(uid); }}
               onChange={(e) => { setUid(e.target.value); setAccount(null); setTxs([]); setNotice(null); }} />
           </div>
-          {canRead && <Button variant="outline" disabled={!uidValid || loading} onClick={() => void lookup(targetUid)}>
+          {canRead && <Button variant="outline" disabled={!uidValid || loading} onClick={() => void lookup(uid)}>
             {loading ? t("log.quota.searching") : t("log.quota.lookup")}
           </Button>}
-          {canGrant && <Button disabled={!account} onClick={() => { setError(null); setNotice(null); setAmount(""); setRef("manual:"); setOp("grant"); }}>{t("log.quota.grant")}</Button>}
-          {canRevoke && <Button variant="outline" disabled={!account} onClick={() => { setError(null); setNotice(null); setAmount(""); setRef("revoke:"); setOp("revoke"); }}>{t("log.quota.revoke")}</Button>}
+          {canGrant && <Button disabled={!account} onClick={() => { setError(null); setNotice(null); setAmount(""); setRef(newRef("manual")); setOp("grant"); }}>{t("log.quota.grant")}</Button>}
+          {canRevoke && <Button variant="outline" disabled={!account} onClick={() => { setError(null); setNotice(null); setAmount(""); setRef(newRef("revoke")); setOp("revoke"); }}>{t("log.quota.revoke")}</Button>}
         </div>
       </CardHeader>
       <CardContent className="space-y-3">
@@ -210,7 +234,7 @@ function QuotaOps() {
         </Card>}
       </CardContent>
 
-      <ConfirmDialog open={confirming} pending={saving} title={t("log.quota.revokeConfirm.title", { userId: account?.userId ?? "", amount: amount ? usd(Number(amount)) : "" })}
+      <ConfirmDialog open={confirming} pending={saving} title={t("log.quota.revokeConfirm.title", { userId: account?.userId ?? "", amount: usd(toMicro(amount) ?? 0) })}
         description={t("log.quota.revokeConfirm.description")}
         confirmLabel={t("log.quota.confirmRevoke")} onCancel={() => setConfirming(false)} onConfirm={() => void submit()} />
     </Card>
