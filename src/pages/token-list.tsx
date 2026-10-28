@@ -14,7 +14,7 @@ interface TokenVO {
   id: number; userId: number; name: string; display: string;
   quotaBudget?: number | null; quotaUsed: number; expiresAt?: number | null;
   rpmLimit?: number | null; tpmLimit?: number | null; concurrencyLimit?: number | null;
-  status: number; createdAt?: number | null; groupOverride?: string | null;
+  status: number; createdAt?: number | null; groupOverride?: string | null; groupAssigned?: number;
 }
 interface GroupVO { code: string; name: string; ratio: string }
 
@@ -57,7 +57,7 @@ export default function Page() {
     { key: "rpmLimit", header: "RPM", cell: (r) => r.rpmLimit ?? t("common.unlimited") },
     { key: "tpmLimit", header: "TPM", cell: (r) => r.tpmLimit ?? t("common.unlimited") },
     { key: "concurrencyLimit", header: t("token.column.concurrencyLimit"), cell: (r) => r.concurrencyLimit ?? t("common.unlimited") },
-    { key: "group", header: t("token.column.group"), cell: (r) => r.groupOverride ? <code className="text-xs">{r.groupOverride}</code> : <span className="text-[var(--muted-foreground)]">{t("token.group.inherit")}</span> },
+    { key: "group", header: t("token.column.group"), cell: (r) => r.groupOverride ? <span><code className="text-xs">{r.groupOverride}</code> <span className="text-[11px] text-[var(--muted-foreground)]">{r.groupAssigned ? t("token.group.assigned") : t("token.group.selected")}</span></span> : <span className="text-[var(--muted-foreground)]">default</span> },
     { key: "status", header: t("common.field.status"), cell: (r) => <StatusBadge active={r.status === 1}>{r.status === 1 ? t("common.status.enabled") : t("common.status.disabled")}</StatusBadge> },
     { key: "createdAt", header: t("common.field.createdAt"), cell: (r) => formatDateTime(r.createdAt) },
     { key: "actions", header: t("common.field.actions"), cell: (row) => <RowActions primary={actions(row)} /> },
@@ -78,7 +78,7 @@ export default function Page() {
   </>;
 
   const actions = (row: TokenVO): RowAction[] => [
-    { label: t("token.action.group"), onClick: () => setGrouping({ row, code: row.groupOverride ?? "" }) },
+    { label: t("token.action.group"), onClick: () => setGrouping({ row, code: row.groupAssigned ? row.groupOverride ?? "" : "" }) },
     row.status === 1
       ? { label: t("common.action.disable"), onClick: () => void setStatus(row, 0) }
       : { label: t("common.action.enable"), onClick: () => void setStatus(row, 1) },
