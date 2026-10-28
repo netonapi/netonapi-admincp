@@ -568,6 +568,13 @@ const messages: Record<string, string> = {
   "group.placeholder.description": "用户建 Key 选分组时看到，例如「高可用线路，自动故障切换」",
   "token.group.assigned": "运营指定",
   "token.group.selected": "用户自选",
+  "token.action.limits": "限速",
+  "token.limits.title": "设置限速：{name}",
+  "token.field.rpmLimit": "RPM 上限（留空不限）",
+  "token.field.tpmLimit": "TPM 上限（留空不限）",
+  "token.field.concurrencyLimit": "并发上限（留空不限）",
+  "token.limits.hint": "用户不能自行放宽这些上限。不设限意味着单把 Key 可以打满上游配额，建议至少设 RPM。",
+  "error.TOKEN_LIMIT_INVALID": "限速必须是正整数，留空表示不限",
 };
 
 export default messages;

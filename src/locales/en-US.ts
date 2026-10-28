@@ -568,6 +568,13 @@ const messages: Record<string, string> = {
   "group.placeholder.description": "Shown to users when they pick a group, e.g. High-availability routes with failover",
   "token.group.assigned": "Assigned",
   "token.group.selected": "User's choice",
+  "token.action.limits": "Limits",
+  "token.limits.title": "Rate limits: {name}",
+  "token.field.rpmLimit": "RPM limit (blank = unlimited)",
+  "token.field.tpmLimit": "TPM limit (blank = unlimited)",
+  "token.field.concurrencyLimit": "Concurrency limit (blank = unlimited)",
+  "token.limits.hint": "Users cannot loosen these limits themselves. Without limits a single key can exhaust upstream quota; set at least RPM.",
+  "error.TOKEN_LIMIT_INVALID": "Limits must be positive integers; leave blank for unlimited",
 };
 
 export default messages;

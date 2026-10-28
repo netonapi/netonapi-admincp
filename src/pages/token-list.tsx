@@ -31,6 +31,7 @@ export default function Page() {
   const [error, setError] = React.useState<string | null>(null);
   const [groups, setGroups] = React.useState<GroupVO[]>([]);
   const [grouping, setGrouping] = React.useState<{ row: TokenVO; code: string } | null>(null);
+  const [limiting, setLimiting] = React.useState<{ row: TokenVO; rpm: string; tpm: string; concurrency: string } | null>(null);
   React.useEffect(() => { apiFetch<GroupVO[]>("/admin/gateway/group/list").then(setGroups).catch(() => setGroups([])); }, []);
 
   const load = React.useCallback(async () => {
@@ -77,7 +78,17 @@ export default function Page() {
     {groups.map((g) => <option key={g.code} value={g.code}>{t("override.option.group", { code: g.code, name: g.name, ratio: g.ratio })}</option>)}
   </>;
 
+  async function saveLimits() {
+    if (!limiting) return;
+    const num = (v: string) => (v.trim() ? Number(v) : null);
+    try {
+      await apiWrite<void>("/admin/gateway/token/update-limits", "PUT", { id: limiting.row.id, rpmLimit: num(limiting.rpm), tpmLimit: num(limiting.tpm), concurrencyLimit: num(limiting.concurrency) });
+      setLimiting(null); void load();
+    } catch (cause) { setError(describeError(cause)); }
+  }
+
   const actions = (row: TokenVO): RowAction[] => [
+    { label: t("token.action.limits"), onClick: () => setLimiting({ row, rpm: row.rpmLimit?.toString() ?? "", tpm: row.tpmLimit?.toString() ?? "", concurrency: row.concurrencyLimit?.toString() ?? "" }) },
     { label: t("token.action.group"), onClick: () => setGrouping({ row, code: row.groupAssigned ? row.groupOverride ?? "" : "" }) },
     row.status === 1
       ? { label: t("common.action.disable"), onClick: () => void setStatus(row, 0) }
@@ -93,6 +104,16 @@ export default function Page() {
         <Button variant="outline" onClick={() => void load()}>{t("common.action.search")}</Button>
       </div>
       <DataTable columns={columns} rows={rows} rowKey={(r) => r.id} loading={loading} error={error ?? undefined} />
+
+      <Drawer open={limiting != null} onClose={() => setLimiting(null)} title={limiting ? t("token.limits.title", { name: limiting.row.name }) : ""}
+        footer={<><Button variant="outline" onClick={() => setLimiting(null)}>{t("common.action.cancel")}</Button><Button onClick={() => void saveLimits()}>{t("common.action.save")}</Button></>}>
+        {limiting && <div className="space-y-3">
+          <Field label={t("token.field.rpmLimit")}><Input type="number" value={limiting.rpm} onChange={(e) => setLimiting({ ...limiting, rpm: e.target.value })} /></Field>
+          <Field label={t("token.field.tpmLimit")}><Input type="number" value={limiting.tpm} onChange={(e) => setLimiting({ ...limiting, tpm: e.target.value })} /></Field>
+          <Field label={t("token.field.concurrencyLimit")}><Input type="number" value={limiting.concurrency} onChange={(e) => setLimiting({ ...limiting, concurrency: e.target.value })} /></Field>
+          <p className="text-xs text-[var(--muted-foreground)]">{t("token.limits.hint")}</p>
+        </div>}
+      </Drawer>
 
       <Drawer open={grouping != null} onClose={() => setGrouping(null)} title={grouping ? t("token.group.title", { name: grouping.row.name }) : ""}
         footer={<><Button variant="outline" onClick={() => setGrouping(null)}>{t("common.action.cancel")}</Button><Button onClick={() => void saveGroup()}>{t("common.action.save")}</Button></>}>
