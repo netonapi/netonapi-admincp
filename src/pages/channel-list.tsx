@@ -62,6 +62,9 @@ async function pullModels(row: ResourceRecord, done: () => Promise<void>, descri
 }
 
 import { ChannelCostDrawer, type CostChannel } from "./channel-cost-drawer";
+
+/** 只有成本来源是「上游价目接口」时，价目格式 / 地址 / 分组倍率 / 充值汇率才有意义。 */
+const isUpstream = (record: Record<string, unknown>) => record.costSource === "upstream";
 import { ChannelKeyDrawer, splitKeys, type KeyChannel } from "./channel-key-drawer";
 
 export default function Page() {
@@ -97,14 +100,16 @@ export default function Page() {
   { key: "paramOverride", label: t("channel.field.paramOverride"), type: "textarea", table: false },
   { key: "priority", label: t("channel.field.priority"), type: "number", defaultValue: 0 },
   { key: "weight", label: t("channel.field.weight"), type: "number", defaultValue: 1 },
-  { key: "costSource", label: t("channel.field.costSource"), type: "select", defaultValue: "official", options: [
+  // 成本设置不给默认值：上游几乎不可能按官方价 1:1 计费，默认 1 会把成本静默记成官方价、毛利体检与亏本拦截全部失真
+  { key: "costSource", label: t("channel.field.costSource"), type: "select", required: true, hint: t("channel.hint.costSource"), options: [
+    { label: t("channel.costSource.choose"), value: "" },
     { label: t("channel.costSource.official"), value: "official" }, { label: t("channel.costSource.upstream"), value: "upstream" }, { label: t("channel.costSource.manual"), value: "manual" } ] },
-  { key: "costDiscount", label: t("channel.field.costDiscount"), defaultValue: "1.0" },
-  { key: "upstreamPricingFormat", label: t("channel.field.upstreamPricingFormat"), type: "select", table: false, options: [
-    { label: t("channel.pricingFormat.none"), value: "" }, { label: t("channel.pricingFormat.newapi"), value: "newapi" }, { label: "OpenRouter", value: "openrouter" } ] },
-  { key: "upstreamPricingUrl", label: t("channel.field.upstreamPricingUrl"), table: false, placeholder: t("channel.placeholder.upstreamPricingUrl") },
-  { key: "upstreamGroupRatio", label: t("channel.field.upstreamGroupRatio"), table: false, defaultValue: "1" },
-  { key: "upstreamCreditRate", label: t("channel.field.upstreamCreditRate"), table: false, defaultValue: "1", placeholder: t("channel.placeholder.upstreamCreditRate") },
+  { key: "costDiscount", label: t("channel.field.costDiscount"), required: true, hint: t("channel.hint.costDiscount"), placeholder: t("channel.placeholder.costDiscount") },
+  { key: "upstreamPricingFormat", label: t("channel.field.upstreamPricingFormat"), type: "select", table: false, required: true, showWhen: isUpstream, hint: t("channel.hint.upstreamPricingFormat"), options: [
+    { label: t("channel.pricingFormat.choose"), value: "" }, { label: t("channel.pricingFormat.newapi"), value: "newapi" }, { label: "OpenRouter", value: "openrouter" } ] },
+  { key: "upstreamPricingUrl", label: t("channel.field.upstreamPricingUrl"), table: false, showWhen: isUpstream, hint: t("channel.hint.upstreamPricingUrl"), placeholder: t("channel.placeholder.upstreamPricingUrl") },
+  { key: "upstreamGroupRatio", label: t("channel.field.upstreamGroupRatio"), table: false, required: true, showWhen: isUpstream, hint: t("channel.hint.upstreamGroupRatio"), placeholder: t("channel.placeholder.upstreamGroupRatio") },
+  { key: "upstreamCreditRate", label: t("channel.field.upstreamCreditRate"), table: false, required: true, showWhen: isUpstream, hint: t("channel.hint.upstreamCreditRate"), placeholder: t("channel.placeholder.upstreamCreditRate") },
   { key: "proxyUrl", label: t("channel.field.proxyUrl"), table: false },
   { key: "apiVersion", label: t("channel.field.apiVersion"), table: false, placeholder: t("channel.placeholder.apiVersion") },
   { key: "providerConfig", label: t("channel.field.providerConfig"), type: "textarea", table: false, placeholder: t("channel.placeholder.providerConfig") },
