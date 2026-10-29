@@ -11,7 +11,7 @@ NetonAPI 运营侧前端（仓库 `netonapi/netonapi-frontend`，本地目录同
 |---|---|
 | 前端 | React 19.2 · Next.js 16（App Router）· Tailwind 4 · TanStack Query 5 |
 | 包管理 | pnpm workspace（`apps/*` + `packages/*`），lockfile 已提交 |
-| 语言 | TypeScript 5.7（`tsc --noEmit` 为门禁） |
+| 语言 | TypeScript 7（`tsc --noEmit` 为门禁） |
 | 开发端口 | `3000`（Next.js 默认，`next dev` 未带 `-p`） |
 | 许可 | [Apache-2.0](./LICENSE) |
 
@@ -34,26 +34,27 @@ NetonAPI 运营侧前端（仓库 `netonapi/netonapi-frontend`，本地目录同
 `scripts/generate-registry.mts` 据此生成 `src/generated/` 下的页面注册表：
 
 ```
-@neton/application-front-{system,gateway,infra,member,payment,platform}
+@neton/application-front-{system,gateway,infra,account,member,payment}
 ```
 
-六个模块都以 `file:../../../../Neton/neton-application-front-*` 引入，所以本仓必须正好落在
+这些模块都以 `file:../../../../Neton/neton-application-front-*` 引入，所以本仓必须正好落在
 持有 `Neton/` 的那层目录的**两层深处**：
 
 ```
 projects/
 ├── Neton/
-│   └── neton-application-front-{system,gateway,infra,member,payment,platform}/
+│   ├── neton-application-front/           # 底座包：kit / resource / runtime / contract / workspace
+│   └── neton-application-front-{system,gateway,infra,account,member,payment}/
 └── <workspace>/
     ├── netonapi-backend/   # 后端
     └── netonapi-frontend/  # ← 本仓
 ```
 
-> ⚠️ **现在从干净 clone 出发装不起来。** 六个模块仓里
-> `neton-application-front-gateway`、`-member`、`-payment`、`-platform` 目前是私有仓
-> （`-system`、`-infra` 是公开的）。没有那四个仓的读权限，`pnpm install` 会在解析 `file:`
-> 依赖时失败。在它们转公开之前，公开本仓只意味着「源码可读」，不意味着「人人可自建」。
-> 其中 `front-gateway` 才是 NetonAPI 的运营页面所在。
+### 安装前提
+
+`pnpm install` 需要上面每个模块仓的读权限。`neton-application-front-gateway`（NetonAPI 的运营页面）、
+`-member`、`-payment` 目前是私有仓（`-system`、`-infra`、`-account` 与底座 `neton-application-front` 是公开的），
+在它们公开之前，只凭公开源码装不起来。
 
 ## 开发
 
