@@ -29,10 +29,7 @@ COPY Neton/neton-application-front/packages/front-runtime/src            /src/Ne
 COPY Neton/neton-application-front/packages/front-workspace/package.json /src/Neton/neton-application-front/packages/front-workspace/package.json
 COPY Neton/neton-application-front/packages/front-workspace/src          /src/Neton/neton-application-front/packages/front-workspace/src
 
-# ── canonical 管理台模块（七个）──
-COPY Neton/neton-application-front-gateway/package.json  /src/Neton/neton-application-front-gateway/package.json
-COPY Neton/neton-application-front-gateway/tsconfig.json /src/Neton/neton-application-front-gateway/tsconfig.json
-COPY Neton/neton-application-front-gateway/src           /src/Neton/neton-application-front-gateway/src
+# ── canonical 管理台模块（gateway 在本仓 packages/front-gateway，见下方）──
 COPY Neton/neton-application-front-infra/package.json    /src/Neton/neton-application-front-infra/package.json
 COPY Neton/neton-application-front-infra/tsconfig.json   /src/Neton/neton-application-front-infra/tsconfig.json
 COPY Neton/neton-application-front-infra/src             /src/Neton/neton-application-front-infra/src
@@ -57,6 +54,9 @@ WORKDIR /src/NewGate/netonapi-frontend
 COPY NewGate/netonapi-frontend/package.json NewGate/netonapi-frontend/pnpm-workspace.yaml NewGate/netonapi-frontend/pnpm-lock.yaml \
      NewGate/netonapi-frontend/tsconfig.base.json NewGate/netonapi-frontend/turbo.json ./
 COPY NewGate/netonapi-frontend/scripts ./scripts
+COPY NewGate/netonapi-frontend/packages/front-gateway/package.json  ./packages/front-gateway/package.json
+COPY NewGate/netonapi-frontend/packages/front-gateway/tsconfig.json ./packages/front-gateway/tsconfig.json
+COPY NewGate/netonapi-frontend/packages/front-gateway/src           ./packages/front-gateway/src
 COPY NewGate/netonapi-frontend/apps/shell/package.json NewGate/netonapi-frontend/apps/shell/next.config.ts \
      NewGate/netonapi-frontend/apps/shell/front.modules.ts NewGate/netonapi-frontend/apps/shell/postcss.config.mjs \
      NewGate/netonapi-frontend/apps/shell/tsconfig.json ./apps/shell/

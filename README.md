@@ -37,14 +37,15 @@ NetonAPI 运营侧前端（仓库 [`netonapi/netonapi-admincp`](https://github.c
 @neton/application-front-{system,gateway,infra,account,member,payment}
 ```
 
-这些模块都以 `file:../../../../Neton/neton-application-front-*` 引入，所以本仓必须正好落在
+其中 `front-gateway`（NetonAPI 的运营页面）是本产品独有的，就在本仓 `packages/front-gateway`，以 `workspace:*` 引入；
+其余是 Neton Application 的通用模块，都以 `file:../../../../Neton/neton-application-front-*` 引入，所以本仓必须正好落在
 持有 `Neton/` 的那层目录的**两层深处**：
 
 ```
 projects/
 ├── Neton/
 │   ├── neton-application-front/           # 底座包：kit / resource / runtime / contract / workspace
-│   └── neton-application-front-{system,gateway,infra,account,member,payment}/
+│   └── neton-application-front-{system,infra,account,member,payment}/
 └── <workspace>/
     ├── netonapi-backend/   # 后端
     └── netonapi-frontend/  # ← 本仓
@@ -52,9 +53,8 @@ projects/
 
 ### 安装前提
 
-`pnpm install` 需要上面每个模块仓的读权限。`neton-application-front-gateway`（NetonAPI 的运营页面）、
-`-member`、`-payment` 目前是私有仓（`-system`、`-infra`、`-account` 与底座 `neton-application-front` 是公开的），
-在它们公开之前，只凭公开源码装不起来。
+`pnpm install` 需要上面每个模块仓的读权限。`neton-application-front-member`、`-payment` 目前是私有仓
+（`-system`、`-infra`、`-account` 与底座 `neton-application-front` 是公开的），在它们公开之前，只凭公开源码装不起来。
 
 ## 开发
 

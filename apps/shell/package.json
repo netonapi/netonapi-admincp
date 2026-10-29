@@ -13,7 +13,7 @@
   "dependencies": {
     "@neton/application-front-account": "file:../../../../Neton/neton-application-front-account",
     "@neton/application-front-contract": "file:../../../../Neton/neton-application-front/packages/front-contract",
-    "@neton/application-front-gateway": "file:../../../../Neton/neton-application-front-gateway",
+    "@neton/application-front-gateway": "workspace:*",
     "@neton/application-front-infra": "file:../../../../Neton/neton-application-front-infra",
     "@neton/application-front-kit": "file:../../../../Neton/neton-application-front/packages/front-kit",
     "@neton/application-front-member": "file:../../../../Neton/neton-application-front-member",
