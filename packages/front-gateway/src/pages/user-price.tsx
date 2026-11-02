@@ -21,8 +21,6 @@ interface UserRow { userId: number; models: number; updatedAt?: number | null }
 interface ModelOption { model: string; displayName?: string | null; listed: number; access?: string; inputPrice: string; outputPrice: string; perRequestPrice?: number | null }
 interface Preview { price: PriceItems; discountBp?: number | null; status: string; worst?: Combo | null }
 
-/** 表格里的一行：价目表里的模型（可调用），或调不通的上架模型——LOCKED（限定开放、还没开放给他）/ UNSERVED（这个分组没有渠道承载）。 */
-interface Line extends Row { locked?: boolean }
 
 /** 查用户时「没有这个用户」：本地文案，与接口错误区分开。 */
 class UserNotFound extends Error {}
@@ -33,11 +31,11 @@ const accountName = (a: Account | undefined) => a?.username || a?.nickname || ""
  * 用户定价（docs/gateway-pricing-spec.md §4.3）：给单个用户按模型打折，只做这一件事。
  *
  * - 列表：所有有协议价的用户；搜索任意用户进入详情。
- * - 详情：一张表列出全部上架模型——官方价、他的价格、折扣、价格来源（标准价 / 分组价 / 协议价）、毛利，
- *   行尾【协议定价】设折扣，可批量。调不通的模型也列出并标明原因（未开放 / 暂无渠道），不把行藏掉。
- *   价格跟着 Key 的分组走：default 分组始终可看（他随时能建一把不绑分组的 Key），他的 Key 所在分组各一个页签。
+ * - 详情：一张表列出他能调用的全部模型——官方价、他的价格、折扣、价格来源（全站价 / 分组价 / 协议价）、毛利，
+ *   行尾【协议定价】设折扣，可批量。能调用 = 他各分组（default + Key 所在分组）价目表的并集；
+ *   同一模型在不同分组价格不同时逐个分组列出。限定开放还没开放给他的模型不进主表，从「开放限定模型」进入。
  *
- * 折扣按官方价计（「官方价 7 折」），存成定价规则 OFFICIAL_DISCOUNT；开放存成 PLATFORM。
+ * 折扣按官方价计（「官方价 7 折」），存成定价规则 OFFICIAL_DISCOUNT；开放存成 PLATFORM（按全站价）。
  * 输入单位跟语言走：中文填「折」（7 = 7 折），英文填百分比（70 = 70%），换算系数在语言包 userPrice.discountDivisor。
  * 价格与扣费口径与转发、/v1/models 同一份价目表：这里看到的就是他调用时会扣的。
  */
@@ -108,6 +106,9 @@ export default function Page() {
   );
 }
 
+/** 主表一行：他能调用的一个模型，以及它在他各分组下的报价（多数情况只有 default 一个）。 */
+interface Line { model: string; displayName?: string | null; access: string; official: PriceItems; quotes: { group: Group; row: Row }[] }
+
 function UserDetail({ user, onBack }: { user: Account; onBack: () => void }) {
   const t = useT("gateway");
   const describeError = useDescribeError("gateway");
@@ -115,7 +116,7 @@ function UserDetail({ user, onBack }: { user: Account; onBack: () => void }) {
   const divisor = Number(t("userPrice.discountDivisor")) || 10;
   const [book, setBook] = React.useState<Group[] | null>(null);
   const [catalog, setCatalog] = React.useState<ModelOption[]>([]);
-  const [groupCode, setGroupCode] = React.useState<string | null>(null);
+  const [rules, setRules] = React.useState<Record<string, { mode: string; discount?: string | null }>>({});
   const [error, setError] = React.useState<string | null>(null);
   const [selected, setSelected] = React.useState<string[]>([]);
   const [editing, setEditing] = React.useState<{ models: string[]; value: string } | null>(null);
@@ -123,7 +124,7 @@ function UserDetail({ user, onBack }: { user: Account; onBack: () => void }) {
   const [previewError, setPreviewError] = React.useState<string | null>(null);
   const [saving, setSaving] = React.useState(false);
   const [results, setResults] = React.useState<string[]>([]);
-  const [rules, setRules] = React.useState<Record<string, string>>({});
+  const [othersOpen, setOthersOpen] = React.useState(false);
 
   const load = React.useCallback(async () => {
     setError(null);
@@ -131,32 +132,28 @@ function UserDetail({ user, onBack }: { user: Account; onBack: () => void }) {
       const [b, prices, own] = await Promise.all([
         apiFetch<Group[]>(`/admin/gateway/price-rule/pricebook?userId=${user.id}`),
         apiFetch<ModelOption[]>("/admin/gateway/price/list").catch(() => [] as ModelOption[]),
-        apiFetch<{ model: string; mode: string }[]>(`/admin/gateway/price-rule/list?subjectType=USER&subjectId=${user.id}`).catch(() => []),
+        apiFetch<{ model: string; mode: string; discount?: string | null }[]>(`/admin/gateway/price-rule/list?subjectType=USER&subjectId=${user.id}`).catch(() => []),
       ]);
       setBook(b);
-      // 默认看他 Key 最多的那个分组（都没有就是 default）
-      setGroupCode((cur) => (cur && b.some((g) => g.groupCode === cur) ? cur
-        : [...b].sort((x, y) => (y.keys ?? 0) - (x.keys ?? 0))[0]?.groupCode ?? null));
-      setCatalog(prices.filter((m) => m.listed === 1).sort((a, c) => a.model.localeCompare(c.model)));
-      setRules(Object.fromEntries(own.map((r) => [r.model, r.mode])));
+      setCatalog(prices.filter((m) => m.listed === 1));
+      setRules(Object.fromEntries(own.map((r) => [r.model, { mode: r.mode, discount: r.discount }])));
     } catch (cause) { setError(describeError(cause)); setBook([]); }
   }, [user.id]);
   React.useEffect(() => { void load(); }, [load]);
 
-  const group = book?.find((g) => g.groupCode === groupCode) ?? null;
-  /** 全部上架模型：价目表里有的照它（可调用），没有的标出原因（限定开放未开放 / 这个分组没有渠道承载）。 */
+  /** 他能调用的模型 = 他各分组（default + Key 所在分组）价目表的并集；只有一个分组时就是那一张。 */
   const lines: Line[] = React.useMemo(() => {
-    if (!group) return [];
-    const inBook = new Map(group.rows.map((r) => [r.model, r]));
-    return catalog.map((m): Line => {
-      const r = inBook.get(m.model);
-      if (r) return r;
-      const official = { input: m.inputPrice, output: m.outputPrice, cacheRead: "0", cacheWrite: "0", perRequest: m.perRequestPrice ?? null };
-      const closed = m.access === "RULES_ONLY" && !rules[m.model];
-      return { model: m.model, displayName: m.displayName, tiered: false, access: m.access ?? "ALL", official, price: official,
-        source: closed ? "LOCKED" : "UNSERVED", locked: closed, mode: rules[m.model] ?? null };
-    });
-  }, [group, catalog, rules]);
+    const byModel = new Map<string, Line>();
+    for (const g of book ?? []) for (const r of g.rows) {
+      const cur = byModel.get(r.model) ?? { model: r.model, displayName: r.displayName, access: r.access, official: r.official, quotes: [] };
+      cur.quotes.push({ group: g, row: r });
+      byModel.set(r.model, cur);
+    }
+    return [...byModel.values()].sort((a, b) => a.model.localeCompare(b.model));
+  }, [book]);
+  const callable = React.useMemo(() => new Set(lines.map((l) => l.model)), [lines]);
+  /** 主表之外：限定开放还没开放给他的；以及设过协议价、但现在哪个分组都调不通的。 */
+  const others = React.useMemo(() => catalog.filter((m) => !callable.has(m.model) && (m.access === "RULES_ONLY" || rules[m.model])), [catalog, callable, rules]);
 
   /** 万分位 → 输入框里的数（中文 7000 → 7，英文 → 70）。 */
   const toInput = (bp: number) => String(Number(((bp / 10000) * divisor).toFixed(2)));
@@ -200,85 +197,94 @@ function UserDetail({ user, onBack }: { user: Account; onBack: () => void }) {
     apiWrite(`/admin/gateway/price-rule/delete?subjectType=USER&subjectId=${user.id}&model=${encodeURIComponent(m)}`, "DELETE"));
   const unlock = (models: string[]) => apply(models, (m) => apiWrite("/admin/gateway/price-rule/save", "PUT", ruleBody(m, "PLATFORM")));
 
-  /** 他有自己的规则（协议价或开放）——不论这个分组有没有渠道承载。 */
-  const isOwn = (r: Line) => r.source === "USER" || rules[r.model] != null;
-  const openEditor = (r: Line) => {
+  const negotiated = (model: string) => rules[model]?.mode === "OFFICIAL_DISCOUNT" || rules[model]?.mode === "FIXED";
+  const openEditor = (model: string) => {
     setResults([]);
-    const current = rules[r.model] === "OFFICIAL_DISCOUNT" && r.source === "USER" && r.discountBp ? toInput(r.discountBp) : "";
-    setEditing({ models: [r.model], value: current });
+    const r = rules[model];
+    const current = r?.mode === "OFFICIAL_DISCOUNT" && r.discount ? String(Number((Number(r.discount) * divisor).toFixed(2))) : "";
+    setEditing({ models: [model], value: current });
   };
-  const actions = (r: Line): RowAction[] => {
+  const actions = (l: Line): RowAction[] => {
     if (!canUpdate) return [];
-    if (r.locked) return [{ label: t("userPrice.action.unlock"), kind: "enable", onClick: () => void unlock([r.model]) },
-      { label: t("userPrice.action.set"), kind: "edit", tone: "primary", onClick: () => openEditor(r) }];
-    if (!isOwn(r)) return [{ label: t("userPrice.action.set"), kind: "edit", tone: "primary", onClick: () => openEditor(r) }];
-    // 取消 = 删掉他的规则；「限定开放」的模型删掉后他就看不到了
-    return [{ label: t("userPrice.action.change"), kind: "edit", tone: "primary", onClick: () => openEditor(r) },
-      { label: r.access === "RULES_ONLY" ? t("userPrice.action.lock") : t("userPrice.action.restore"), kind: "delete", danger: true, onClick: () => void restore([r.model]) }];
+    if (!negotiated(l.model)) return [{ label: t("userPrice.action.set"), kind: "edit", tone: "primary", onClick: () => openEditor(l.model) }];
+    // 取消协议价 = 删掉他的规则；「限定开放」的模型删掉后他就调不了了，所以改成「按全站价开放」而不是删
+    return [{ label: t("userPrice.action.change"), kind: "edit", tone: "primary", onClick: () => openEditor(l.model) },
+      { label: t("userPrice.action.restore"), kind: "delete", danger: true,
+        onClick: () => void (l.access === "RULES_ONLY" ? unlock([l.model]) : restore([l.model])) }];
   };
 
   const SOURCE_STYLE: Record<string, string> = {
     USER: "bg-violet-50 text-violet-700 dark:bg-violet-950/40 dark:text-violet-300",
     GROUP: "bg-sky-50 text-sky-700 dark:bg-sky-950/40 dark:text-sky-300",
     PLATFORM: "bg-[var(--muted)] text-[var(--muted-foreground)]",
-    LOCKED: "bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300",
-    UNSERVED: "bg-[var(--muted)] text-[var(--muted-foreground)]",
   };
-  const sourceCell = (r: Line) => <span className="inline-flex flex-col gap-0.5">
-    <span className={`inline-flex w-fit whitespace-nowrap rounded-md px-2 py-0.5 text-[11px] font-medium ${SOURCE_STYLE[r.source] ?? ""}`}>{t(`userPrice.source.${r.source}`)}</span>
-    {r.source === "UNSERVED" && isOwn(r) && <span className="text-[11px] text-[var(--muted-foreground)]">{t("userPrice.source.ownHere")}</span>}
-  </span>;
+  /** 「开放」规则（PLATFORM）按全站价计，来源显示成全站价；只有折扣 / 固定价才算协议价。 */
+  const sourceOf = (r: Row) => (r.source === "USER" && r.mode === "PLATFORM" ? "PLATFORM" : r.source);
+  const multi = (l: Line) => l.quotes.length > 1 && new Set(l.quotes.map((q) => `${pricePair(q.row.price, t)}|${sourceOf(q.row)}`)).size > 1;
+  /** 各分组报价一致时只显示一个；不一致时逐个分组列出（分组名：值）。 */
+  const perGroup = (l: Line, render: (r: Row) => React.ReactNode) => multi(l)
+    ? <div className="space-y-0.5">{l.quotes.map((q) => <div key={q.group.groupCode} className="flex items-center gap-1.5"><span className="text-[10px] text-[var(--muted-foreground)]">{q.group.groupName}</span>{render(q.row)}</div>)}</div>
+    : render(l.quotes[0].row);
 
-  const allOn = lines.length > 0 && lines.every((r) => selected.includes(r.model));
+  const worstOf = (l: Line) => l.quotes.map((q) => q.row.worst).filter((w): w is Combo => w != null).sort((a, b) => a.marginBp - b.marginBp)[0];
+  const allOn = lines.length > 0 && lines.every((l) => selected.includes(l.model));
   const toggle = (m: string, on: boolean) => setSelected((s) => on ? [...s, m] : s.filter((x) => x !== m));
-  const unavailable = (r: Line) => r.source === "LOCKED" || r.source === "UNSERVED";
   const columns: DataColumn<Line>[] = [
-    ...(canUpdate ? [{ key: "pick", header: <Checkbox checked={allOn} onCheckedChange={(v) => setSelected(v === true ? lines.map((r) => r.model) : [])} />,
-      cell: (r: Line) => <Checkbox checked={selected.includes(r.model)} onCheckedChange={(v) => toggle(r.model, v === true)} /> } satisfies DataColumn<Line>] : []),
-    { key: "model", header: t("common.field.model"), cell: (r) => <div>
-      {r.displayName ? <><div className="text-sm font-medium">{r.displayName}</div><code className="text-[11px] text-[var(--muted-foreground)]">{r.model}</code></> : <code className="text-xs">{r.model}</code>}
-      {r.access === "RULES_ONLY" && <span className="ml-1 rounded bg-amber-50 px-1 text-[10px] text-amber-700 dark:bg-amber-950/40 dark:text-amber-300">{t("rule.restricted")}</span>}
+    ...(canUpdate ? [{ key: "pick", header: <Checkbox checked={allOn} onCheckedChange={(v) => setSelected(v === true ? lines.map((l) => l.model) : [])} />,
+      cell: (l: Line) => <Checkbox checked={selected.includes(l.model)} onCheckedChange={(v) => toggle(l.model, v === true)} /> } satisfies DataColumn<Line>] : []),
+    { key: "model", header: t("common.field.model"), cell: (l) => <div>
+      {l.displayName ? <><div className="text-sm font-medium">{l.displayName}</div><code className="text-[11px] text-[var(--muted-foreground)]">{l.model}</code></> : <code className="text-xs">{l.model}</code>}
+      {l.access === "RULES_ONLY" && <span className="ml-1 rounded bg-amber-50 px-1 text-[10px] text-amber-700 dark:bg-amber-950/40 dark:text-amber-300">{t("rule.restricted")}</span>}
     </div> },
-    { key: "official", header: t("rule.column.official"), cell: (r) => <span className="tabular-nums text-xs text-[var(--muted-foreground)]">{pricePair(r.official, t)}</span> },
-    { key: "price", header: t("userPrice.column.price"), cell: (r) => unavailable(r) ? <span className="text-xs text-[var(--muted-foreground)]">-</span>
-      : <span className="tabular-nums text-xs font-medium">{pricePair(r.price, t)}{r.tiered ? <span className="ml-1 text-[10px] text-[var(--muted-foreground)]">{t("userPrice.tiered")}</span> : null}</span> },
-    { key: "discount", header: t("userPrice.column.discount"), cell: (r) => unavailable(r) ? <span className="text-xs text-[var(--muted-foreground)]">-</span>
-      : <span className={r.source === "USER" ? "font-medium" : "text-[var(--muted-foreground)]"}>{r.source === "USER" && r.mode === "PLATFORM" ? t("userPrice.unlocked") : offText(r.discountBp)}</span> },
-    { key: "source", header: t("userPrice.column.source"), cell: sourceCell },
-    { key: "margin", header: t("rule.column.margin"), cell: (r) => r.worst
-      ? <span className={`inline-flex w-fit whitespace-nowrap rounded-md px-2 py-0.5 text-[11px] font-medium ${STATUS_TONE[r.worst.status] ?? ""}`}>{(r.worst.marginBp / 100).toFixed(1)}%</span>
-      : <span className="text-xs text-[var(--muted-foreground)]">-</span> },
-    ...(canUpdate ? [{ key: "actions", header: t("common.field.actions"), headerClassName: "text-right", className: "text-right", cell: (r: Line) => <RowActions primary={actions(r)} /> } satisfies DataColumn<Line>] : []),
+    { key: "official", header: t("rule.column.official"), cell: (l) => <span className="tabular-nums text-xs text-[var(--muted-foreground)]">{pricePair(l.official, t)}</span> },
+    { key: "price", header: t("userPrice.column.price"), cell: (l) => perGroup(l, (r) => <span className="tabular-nums text-xs font-medium">{pricePair(r.price, t)}{r.tiered ? <span className="ml-1 text-[10px] text-[var(--muted-foreground)]">{t("userPrice.tiered")}</span> : null}</span>) },
+    { key: "discount", header: t("userPrice.column.discount"), cell: (l) => perGroup(l, (r) => <span className={sourceOf(r) === "USER" ? "font-medium" : "text-[var(--muted-foreground)]"}>{offText(r.discountBp)}</span>) },
+    { key: "source", header: t("userPrice.column.source"), cell: (l) => perGroup(l, (r) => <span className={`inline-flex w-fit whitespace-nowrap rounded-md px-2 py-0.5 text-[11px] font-medium ${SOURCE_STYLE[sourceOf(r)] ?? ""}`}>{t(`userPrice.source.${sourceOf(r)}`)}</span>) },
+    { key: "margin", header: t("rule.column.margin"), cell: (l) => { const w = worstOf(l); return w
+      ? <span className={`inline-flex w-fit whitespace-nowrap rounded-md px-2 py-0.5 text-[11px] font-medium ${STATUS_TONE[w.status] ?? ""}`}>{(w.marginBp / 100).toFixed(1)}%</span>
+      : <span className="text-xs text-[var(--muted-foreground)]">-</span>; } },
+    ...(canUpdate ? [{ key: "actions", header: t("common.field.actions"), headerClassName: "text-right", className: "text-right", cell: (l: Line) => <RowActions primary={actions(l)} /> } satisfies DataColumn<Line>] : []),
   ];
 
-  const picked = lines.filter((r) => selected.includes(r.model));
-  const pickedLocked = picked.filter((r) => r.locked).map((r) => r.model);
-  const pickedOwn = picked.filter(isOwn).map((r) => r.model);
+  const pickedOwn = selected.filter(negotiated);
+  const keyGroups = (book ?? []).filter((g) => (g.keys ?? 0) > 0);
 
   return (
     <div className="space-y-4">
       <PageHeader eyebrow={t("userPrice.title")} title={t("userPrice.who", { id: user.id, name: accountName(user) })} description={t("userPrice.detailDescription")}
-        actions={<Button variant="outline" onClick={onBack}>{t("userPrice.action.back")}</Button>} />
+        actions={<>{canUpdate && others.length > 0 && <Button variant="outline" onClick={() => setOthersOpen(true)}>{t("userPrice.action.others", { count: others.length })}</Button>}
+          <Button variant="outline" onClick={onBack}>{t("userPrice.action.back")}</Button></>} />
       {error && <Alert tone="error">{error}</Alert>}
-      {book && book.length > 0 && <div className="flex flex-wrap items-center gap-2 text-sm">
-        <span className="text-[var(--muted-foreground)]">{t("userPrice.groupSwitch")}</span>
-        {book.map((g) => <Button key={g.groupCode} size="sm" variant={g.groupCode === groupCode ? "default" : "outline"} onClick={() => setGroupCode(g.groupCode)}>
-          {t("userPrice.groupTab", { name: g.groupName, ratio: g.groupRatio, keys: g.keys ?? 0 })}
-        </Button>)}
-      </div>}
-      {group && <p className="text-xs text-[var(--muted-foreground)]">{t("userPrice.groupHint", { name: group.groupName, keys: group.keys ?? 0 })}</p>}
+      {keyGroups.some((g) => g.groupCode !== "default") && <p className="text-xs text-[var(--muted-foreground)]">
+        {t("userPrice.keyGroups", { groups: keyGroups.map((g) => t("userPrice.keyGroup", { name: g.groupName, ratio: g.groupRatio, keys: g.keys ?? 0 })).join("、") })}
+      </p>}
       {canUpdate && selected.length > 0 && <div className="flex flex-wrap items-center gap-2 rounded-lg border border-[var(--border)] bg-[var(--muted)] px-3 py-2 text-sm">
         <span>{t("userPrice.selected", { count: selected.length })}</span>
-        <Button size="sm" onClick={() => { setResults([]); setEditing({ models: picked.map((r) => r.model), value: "" }); }}>{t("userPrice.action.setBatch")}</Button>
-        {pickedLocked.length > 0 && <Button size="sm" variant="outline" onClick={() => void unlock(pickedLocked)} disabled={saving}>{t("userPrice.action.unlockBatch", { count: pickedLocked.length })}</Button>}
-        {pickedOwn.length > 0 && <Button size="sm" variant="outline" onClick={() => void restore(pickedOwn)} disabled={saving}>{t("userPrice.action.restoreBatch", { count: pickedOwn.length })}</Button>}
+        <Button size="sm" onClick={() => { setResults([]); setEditing({ models: [...selected], value: "" }); }}>{t("userPrice.action.setBatch")}</Button>
+        {pickedOwn.length > 0 && <Button size="sm" variant="outline" disabled={saving} onClick={() => {
+          const restricted = new Set(lines.filter((l) => l.access === "RULES_ONLY").map((l) => l.model));
+          void apply(pickedOwn, (m) => restricted.has(m) ? apiWrite("/admin/gateway/price-rule/save", "PUT", ruleBody(m, "PLATFORM"))
+            : apiWrite(`/admin/gateway/price-rule/delete?subjectType=USER&subjectId=${user.id}&model=${encodeURIComponent(m)}`, "DELETE"));
+        }}>{t("userPrice.action.restoreBatch", { count: pickedOwn.length })}</Button>}
         <Button size="sm" variant="ghost" onClick={() => setSelected([])}>{t("common.action.cancel")}</Button>
       </div>}
       {results.length > 0 && !editing && <Alert tone="warning">{results.map((l) => <div key={l}>{l}</div>)}</Alert>}
       <Card><CardContent className="p-0">
-        <DataTable columns={columns} rows={lines} rowKey={(r) => r.model} loading={book === null}
+        <DataTable columns={columns} rows={lines} rowKey={(l) => l.model} loading={book === null}
           emptyTitle={t("userPrice.emptyTitle")} emptyDescription={t("userPrice.emptyDescription")} />
       </CardContent></Card>
+
+      <Drawer open={othersOpen} onClose={() => setOthersOpen(false)} title={t("userPrice.others.title")} description={t("userPrice.others.description")}>
+        <div className="space-y-2">
+          {others.map((m) => <div key={m.model} className="flex items-center justify-between gap-3 rounded-lg border border-[var(--border)] px-3 py-2 text-sm">
+            <span><code className="text-xs">{m.model}</code><span className="ml-2 text-xs text-[var(--muted-foreground)]">{rules[m.model] ? t("userPrice.others.noChannel") : t("userPrice.others.restricted")}</span></span>
+            {rules[m.model]
+              ? <Button size="sm" variant="outline" disabled={saving} onClick={() => void restore([m.model])}>{t("userPrice.action.restore")}</Button>
+              : <Button size="sm" disabled={saving} onClick={() => void unlock([m.model])}>{t("userPrice.action.unlock")}</Button>}
+          </div>)}
+          {others.length === 0 && <p className="text-sm text-[var(--muted-foreground)]">{t("userPrice.others.empty")}</p>}
+        </div>
+      </Drawer>
 
       <Drawer open={editing != null} onClose={() => setEditing(null)}
         title={editing && editing.models.length === 1 ? t("userPrice.drawer.titleOne", { model: editing.models[0] }) : t("userPrice.drawer.titleMany", { count: editing?.models.length ?? 0 })}
