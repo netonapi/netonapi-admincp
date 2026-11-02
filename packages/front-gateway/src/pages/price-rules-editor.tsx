@@ -11,7 +11,7 @@ import { useT } from "@neton/application-front-runtime/i18n";
 
 /**
  * 定价规则编辑（docs/gateway-pricing-spec.md §4.3）：「分组或用户 × 模型」的约定价，以官方价为锚。
- * 「用户定价」页与「计价分组 → 按模型定价」共用。保存前实时预览最终价、相当于官方价几折与最差毛利，亏本不能保存。
+ * 「协议定价」页与「计价分组 → 按模型定价」共用。保存前实时预览最终价、相当于官方价几折与最差毛利，亏本不能保存。
  */
 
 export interface PriceItems { input: string; output: string; cacheRead: string; cacheWrite: string; perRequest?: number | null }

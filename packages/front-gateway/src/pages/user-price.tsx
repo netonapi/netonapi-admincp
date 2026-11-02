@@ -28,7 +28,7 @@ class UserNotFound extends Error {}
 const accountName = (a: Account | undefined) => a?.username || a?.nickname || "";
 
 /**
- * 用户定价（docs/gateway-pricing-spec.md §4.3）：给单个用户按模型打折，只做这一件事。
+ * 协议定价（docs/gateway-pricing-spec.md §4.3）：给单个用户按模型打折，只做这一件事。
  *
  * - 列表：所有有协议价的用户；搜索任意用户进入详情。
  * - 详情：一张表列出他能调用的全部模型——官方价、他的价格、折扣、价格来源（全站价 / 分组价 / 协议价）、毛利，
