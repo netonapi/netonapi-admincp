@@ -223,7 +223,7 @@ function UserDetail({ user, onBack }: { user: Account; onBack: () => void }) {
   const multi = (l: Line) => l.quotes.length > 1 && new Set(l.quotes.map((q) => `${pricePair(q.row.price, t)}|${sourceOf(q.row)}`)).size > 1;
   /** 各分组报价一致时只显示一个；不一致时逐个分组列出（分组名：值）。 */
   const perGroup = (l: Line, render: (r: Row) => React.ReactNode) => multi(l)
-    ? <div className="space-y-0.5">{l.quotes.map((q) => <div key={q.group.groupCode} className="flex items-center gap-1.5"><span className="text-[10px] text-[var(--muted-foreground)]">{q.group.groupName}</span>{render(q.row)}</div>)}</div>
+    ? <div className="space-y-0.5">{l.quotes.map((q) => <div key={q.group.groupCode} className="flex items-center gap-1.5 whitespace-nowrap"><span className="shrink-0 text-[10px] text-[var(--muted-foreground)]">{q.group.groupName}</span>{render(q.row)}</div>)}</div>
     : render(l.quotes[0].row);
 
   const worstOf = (l: Line) => l.quotes.map((q) => q.row.worst).filter((w): w is Combo => w != null).sort((a, b) => a.marginBp - b.marginBp)[0];

@@ -367,7 +367,7 @@ export default function Page() {
       {(r.saleTiers ?? []).slice(1).map((tier, i) => <div key={i} className="text-[11px] text-[var(--muted-foreground)] tabular-nums">{t("price.tier.above", { tokens: ((r.saleTiers ?? [])[i]?.maxPromptTokens ?? 0).toLocaleString(), input: tier.input, output: tier.output })}</div>)}
     </div> : "-" },
     { key: "worst", header: t("price.column.worst"), cell: (r) => r.worst ? <div className="space-y-0.5"><div className="tabular-nums text-xs font-medium">{pct(r.worst.marginBp)}</div><div className="text-[11px] text-[var(--muted-foreground)]">{comboText(r.worst)}</div></div> : <span className="text-xs text-[var(--muted-foreground)]">{t("price.noChannel")}</span> },
-    { key: "status", header: t("common.field.status"), cell: (r) => !isListed(r) ? <span className={`inline-flex rounded-full px-2 py-0.5 text-[11px] font-medium ${STATUS_TONE.UNSERVED}`}>{t("price.shelf.libraryTag")}</span> : <span className={`inline-flex rounded-full px-2 py-0.5 text-[11px] font-medium ${STATUS_TONE[r.status] ?? ""}`}>{t(`price.status.${r.status}`)}</span> },
+    { key: "status", header: t("common.field.status"), cell: (r) => !isListed(r) ? <span className={`inline-flex whitespace-nowrap rounded-full px-2 py-0.5 text-[11px] font-medium ${STATUS_TONE.UNSERVED}`}>{t("price.shelf.libraryTag")}</span> : <span className={`inline-flex whitespace-nowrap rounded-full px-2 py-0.5 text-[11px] font-medium ${STATUS_TONE[r.status] ?? ""}`}>{t(`price.status.${r.status}`)}</span> },
     { key: "actions", header: t("common.field.actions"), headerClassName: "text-right", className: "text-right", cell: (row: CheckRow) => <RowActions primary={actions(row)} more={more(row)} /> },
   ];
 
