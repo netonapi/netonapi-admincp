@@ -53,8 +53,7 @@ projects/
 
 ### 安装前提
 
-`pnpm install` 需要上面每个模块仓的读权限。`neton-application-front-member`、`-payment` 目前是私有仓
-（`-system`、`-infra`、`-account` 与底座 `neton-application-front` 是公开的），在它们公开之前，只凭公开源码装不起来。
+上面列出的模块仓都是公开的，`pnpm install` 只凭公开源码即可完成。
 
 ## 开发
 
