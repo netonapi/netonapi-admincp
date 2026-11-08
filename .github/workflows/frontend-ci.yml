@@ -41,13 +41,6 @@ jobs:
         with:
           path: dist/netonapi-frontend
 
-      - name: Checkout front-gateway pages
-        uses: actions/checkout@v4
-        with:
-          repository: neton-application/neton-application-front-gateway
-          token: ${{ env.NETON_CI_TOKEN }}
-          path: Neton/neton-application-front-gateway
-
       - name: Checkout front-infra pages
         uses: actions/checkout@v4
         with:
