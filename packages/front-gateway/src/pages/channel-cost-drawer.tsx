@@ -4,12 +4,14 @@ import * as React from "react";
 import { apiFetch, apiWrite } from "@neton/application-front-runtime/client";
 import { usePermission } from "@neton/application-front-runtime/client-context";
 import { formatDateTime } from "@neton/application-front-runtime/types";
-import { Alert, Button, Drawer, Field, Input } from "@neton/application-front-kit";
+import { Alert, Button, Drawer, Field, Input, Select } from "@neton/application-front-kit";
 import { useDescribeError } from "@neton/application-front-runtime/errors";
 import { useT } from "@neton/application-front-runtime/i18n";
 
 export interface CostChannel {
-  id: number; name: string; costSource?: string | null; costDiscount?: string | null;
+  id: number; name: string; costSource?: string | null;
+  upstreamPricingFormat?: string | null; upstreamPricingUrl?: string | null;
+  upstreamGroupRatio?: string | null; upstreamCreditRate?: string | null;
   costSyncedAt?: number | null; costSyncError?: string | null;
 }
 interface CostRow {
@@ -66,14 +68,67 @@ export function ChannelCostDrawer({ channel, onClose }: { channel: CostChannel |
     } catch (cause) { setError(describeError(cause)); } finally { setBusy(false); }
   }
 
-  const upstream = channel?.costSource === "upstream";
+  const [settings, setSettings] = React.useState<CostChannel | null>(null);
+  const [savedSettings, setSavedSettings] = React.useState<CostChannel | null>(null);
+  React.useEffect(() => { setSettings(null); setSavedSettings(null); }, [channel]);
+  const upstream = (savedSettings ?? channel)?.costSource === "upstream";
+
+  async function saveSettings(event: React.FormEvent) {
+    event.preventDefault();
+    if (!channel || !settings) return;
+    await run(async () => {
+      const { costSource, upstreamPricingFormat, upstreamPricingUrl, upstreamGroupRatio, upstreamCreditRate } = settings;
+      await apiWrite("/admin/gateway/channel/cost-settings", "PUT", {
+        channelId: channel.id, costSource, upstreamPricingFormat, upstreamPricingUrl, upstreamGroupRatio, upstreamCreditRate,
+      });
+      setSavedSettings(settings);
+      setSettings(null);
+    });
+  }
+
   return (
     <Drawer open={channel != null} onClose={onClose} title={channel ? t("channelCost.title", { name: channel.name }) : ""}
-      description={upstream ? t("channelCost.description.upstream") : t("channelCost.description.official", { discount: channel?.costDiscount ?? "1" })}
+      description={upstream ? t("channelCost.description.upstream") : t("channelCost.description.official")}
       footer={<Button variant="outline" onClick={onClose}>{t("common.action.close")}</Button>}>
       {channel && <div className="space-y-4">
         {error && <Alert tone="error">{error}</Alert>}
         {notice && <Alert tone="info">{notice}</Alert>}
+        {canUpdate && !settings && <Button variant="outline" onClick={() => setSettings(savedSettings ?? { ...channel, costSource: channel.costSource ?? "official",
+          upstreamGroupRatio: channel.costSource === "upstream" ? channel.upstreamGroupRatio : "",
+          upstreamCreditRate: channel.costSource === "upstream" ? channel.upstreamCreditRate : "" })}>
+          {t("channelCost.settings")}
+        </Button>}
+        {settings && <form onSubmit={saveSettings} className="space-y-3 rounded-lg border border-[var(--border)] p-3">
+          <Field label={t("channel.field.costSource")} hint={t("channel.hint.costSource")}>
+            <Select value={settings.costSource ?? "official"} onChange={(e) => setSettings({ ...settings, costSource: e.target.value })}>
+              <option value="official">{t("channel.costSource.official")}</option>
+              <option value="upstream">{t("channel.costSource.upstream")}</option>
+              <option value="manual">{t("channel.costSource.manual")}</option>
+            </Select>
+          </Field>
+          {settings.costSource === "upstream" && <>
+            <Field label={t("channel.field.upstreamPricingFormat")} hint={t("channel.hint.upstreamPricingFormat")}>
+              <Select required value={settings.upstreamPricingFormat ?? ""} onChange={(e) => setSettings({ ...settings, upstreamPricingFormat: e.target.value })}>
+                <option value="">{t("channel.pricingFormat.choose")}</option>
+                <option value="newapi">{t("channel.pricingFormat.newapi")}</option>
+                <option value="openrouter">OpenRouter</option>
+              </Select>
+            </Field>
+            <Field label={t("channel.field.upstreamPricingUrl")} hint={t("channel.hint.upstreamPricingUrl")}>
+              <Input value={settings.upstreamPricingUrl ?? ""} onChange={(e) => setSettings({ ...settings, upstreamPricingUrl: e.target.value })} />
+            </Field>
+            <Field label={t("channel.field.upstreamGroupRatio")} hint={t("channel.hint.upstreamGroupRatio")}>
+              <Input required value={settings.upstreamGroupRatio ?? ""} onChange={(e) => setSettings({ ...settings, upstreamGroupRatio: e.target.value })} />
+            </Field>
+            <Field label={t("channel.field.upstreamCreditRate")} hint={t("channel.hint.upstreamCreditRate")}>
+              <Input required value={settings.upstreamCreditRate ?? ""} onChange={(e) => setSettings({ ...settings, upstreamCreditRate: e.target.value })} />
+            </Field>
+          </>}
+          <div className="flex gap-2">
+            <Button type="submit" disabled={busy}>{t("common.action.save")}</Button>
+            <Button type="button" variant="ghost" onClick={() => setSettings(null)}>{t("common.action.cancel")}</Button>
+          </div>
+        </form>}
         {upstream && <div className="flex items-center justify-between rounded-lg border border-[var(--border)] p-3 text-xs">
           <span>
             {channel.costSyncedAt ? t("channelCost.lastSync", { time: formatDateTime(channel.costSyncedAt) }) : t("channelCost.neverSynced")}

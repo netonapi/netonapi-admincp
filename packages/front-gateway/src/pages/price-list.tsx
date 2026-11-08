@@ -58,8 +58,8 @@ interface CheckRow {
   access?: string;
 }
 /** 某个上游相对一个模型的状态（GET /admin/gateway/channel/model-routes）。 */
-interface ModelRoute { channelId: number; name: string; type: string; status: number; priority: number; supported: boolean; serving: boolean; upstreamModel?: string | null }
-interface RouteEdit extends ModelRoute { selected: boolean; upstream: string }
+interface ModelRoute { channelId: number; name: string; type: string; status: number; priority: number; supported: boolean; serving: boolean; upstreamModel?: string | null; costDiscount?: string | null }
+interface RouteEdit extends ModelRoute { selected: boolean; upstream: string; discount: string }
 interface RouteRow {
   channelId: number; name: string; priority: number; weight: number; status: number; cooldownUntil: number; lastProbeOk?: number | null;
   costInput: string; costOutput: string; costSource: string; configuredSource: string; discount: string; stale: boolean;
@@ -301,7 +301,7 @@ export default function Page() {
     try {
       const list = await apiFetch<ModelRoute[]>(`/admin/gateway/channel/model-routes?model=${encodeURIComponent(row.model)}`);
       setRoutesOnlySupported(list.some((r) => r.supported || r.serving));
-      setRoutes({ row, items: list.map((r) => ({ ...r, selected: r.serving, upstream: r.upstreamModel ?? "" })) });
+      setRoutes({ row, items: list.map((r) => ({ ...r, selected: r.serving, upstream: r.upstreamModel ?? "", discount: r.costDiscount ?? "" })) });
     } catch (cause) { setError(describeError(cause)); }
   }
 
@@ -311,7 +311,7 @@ export default function Page() {
     try {
       await apiWrite<unknown>("/admin/gateway/channel/model-routes", "PUT", {
         model: routes.row.model,
-        routes: routes.items.filter((r) => r.selected).map((r) => ({ channelId: r.channelId, upstreamModel: r.upstream.trim() || null })),
+        routes: routes.items.filter((r) => r.selected).map((r) => ({ channelId: r.channelId, upstreamModel: r.upstream.trim() || null, costDiscount: r.upstream.trim() !== (r.upstreamModel ?? "") || r.discount !== (r.costDiscount ?? "") ? r.discount.trim() : undefined })),
       });
       setRoutes(null); await load();
     } catch (cause) { setFormError(describeError(cause)); } finally { setSaving(false); }
@@ -413,7 +413,7 @@ export default function Page() {
       <Drawer open={routes != null} onClose={() => setRoutes(null)}
         title={routes ? t("price.routes.title", { model: routes.row.displayName || routes.row.model }) : ""}
         description={t("price.routes.description")}
-        footer={<><Button variant="outline" onClick={() => setRoutes(null)}>{t("common.action.cancel")}</Button><Button onClick={() => void saveRoutes()} disabled={saving}>{saving ? t("common.action.saving") : t("common.action.save")}</Button></>}>
+        footer={<><Button variant="outline" onClick={() => setRoutes(null)}>{t("common.action.cancel")}</Button><Button onClick={() => void saveRoutes()} disabled={saving || routes?.items.some((r) => r.selected && !r.discount.trim())}>{saving ? t("common.action.saving") : t("common.action.save")}</Button></>}>
         {routes && <div className="space-y-3">
           {formError && <Alert tone="error">{formError}</Alert>}
           <div className="flex items-center justify-between text-xs text-[var(--muted-foreground)]">
@@ -430,8 +430,16 @@ export default function Page() {
                   {r.status !== 1 && <span className="rounded-full bg-[var(--muted)] px-1.5 py-0.5 text-[10px] text-[var(--muted-foreground)]">{t("common.status.disabled")}</span>}
                   <span className={`rounded-full px-1.5 py-0.5 text-[10px] ${r.supported ? STATUS_TONE.OK : STATUS_TONE.THIN}`}>{t(r.supported ? "price.routes.supported" : "price.routes.unsupported")}</span>
                 </label>
-                {r.selected && <Input value={r.upstream} placeholder={t("price.routes.upstreamPlaceholder", { model: routes.row.model })} className="h-8"
-                  onChange={(e) => editRoute(r.channelId, { upstream: e.target.value })} />}
+                {r.selected && <div className="grid gap-2 sm:grid-cols-2">
+                  <Field label={t("channel.field.modelMapping")}>
+                    <Input value={r.upstream} placeholder={t("price.routes.upstreamPlaceholder", { model: routes.row.model })} className="h-8"
+                      onChange={(e) => editRoute(r.channelId, { upstream: e.target.value, discount: "" })} />
+                  </Field>
+                  <Field label={t("channel.field.costDiscount")}>
+                    <Input value={r.discount} inputMode="decimal" placeholder={t("channel.placeholder.costDiscount")} className="h-8"
+                      onChange={(e) => editRoute(r.channelId, { discount: e.target.value })} />
+                  </Field>
+                </div>}
               </div>
             ))}
           </div>

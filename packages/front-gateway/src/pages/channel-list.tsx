@@ -49,13 +49,12 @@ interface ModelsResult { ok: boolean; status?: number | null; models: string[]; 
  * 拉取上游模型清单，后端记进渠道的「上游支持的模型」（supportedModels）。只是给模型挑上游时的候选，
  * 不并进服务清单：对外提供哪些模型、由哪个上游承载，在「模型与定价」里按模型设置（docs/model-catalog-design.md）。
  */
-async function pullModels(row: ResourceRecord, done: () => Promise<void>, describeError: (error: unknown) => string, t: Translate) {
+async function pullModels(row: ResourceRecord, done: (row: ResourceRecord) => Promise<void>, describeError: (error: unknown) => string, t: Translate) {
   const name = String(row.name ?? row.id);
   try {
     const r = await apiWrite<ModelsResult>(`/admin/gateway/channel/models/${row.id}`, "POST", {});
     if (!r.ok) { window.alert(t("channel.pull.failed", { name, status: r.status ?? t("channel.noResponse"), error: failureText(r, t) })); return; }
-    await done();
-    window.alert(t("channel.models.pulled", { count: r.models.length }));
+    await done(row);
   } catch (cause) {
     window.alert(t("channel.pull.requestFailed", { error: describeError(cause) }));
   }
@@ -63,8 +62,7 @@ async function pullModels(row: ResourceRecord, done: () => Promise<void>, descri
 
 import { ChannelCostDrawer, type CostChannel } from "./channel-cost-drawer";
 
-/** 只有成本来源是「上游价目接口」时，价目格式 / 地址 / 分组倍率 / 充值汇率才有意义。 */
-const isUpstream = (record: Record<string, unknown>) => record.costSource === "upstream";
+import { ChannelModelDrawer } from "./channel-model-drawer";
 import { ChannelKeyDrawer, splitKeys, type KeyChannel } from "./channel-key-drawer";
 
 export default function Page() {
@@ -72,6 +70,8 @@ export default function Page() {
   const t = useT("gateway");
   const queryClient = useQueryClient();
   const refresh = React.useCallback(() => queryClient.invalidateQueries({ queryKey: ["gateway-channel"] }), [queryClient]);
+  const [modelChannel, setModelChannel] = React.useState<{ id: number; name: string } | null>(null);
+  const openModels = (row: ResourceRecord) => setModelChannel({ id: row.id, name: String(row.name ?? row.id) });
   const [costChannel, setCostChannel] = React.useState<CostChannel | null>(null);
   const [keyChannel, setKeyChannel] = React.useState<KeyChannel | null>(null);
   return <><ResourcePage config={{ resourceKey: "gateway-channel",
@@ -81,7 +81,8 @@ export default function Page() {
   ], more: [
     { label: t("channel.action.cost"), onClick: () => setCostChannel(row as unknown as CostChannel) },
     { label: t("channel.action.probe"), kind: "retry", onClick: () => { void probe(row.id, String(row.name ?? row.id), describeError, t); } },
-    { label: t("channel.action.pullModels"), kind: "download", onClick: () => { void pullModels(row, refresh, describeError, t); } },
+    { label: t("channel.models.manage"), onClick: () => openModels(row) },
+    { label: t("channel.action.pullModels"), kind: "download", onClick: () => { void pullModels(row, async (current) => { await refresh(); openModels(current); }, describeError, t); } },
     { label: t("channel.action.revive"), kind: "retry", onClick: () => { void revive(row, refresh, describeError, t); } },
   ] }), eyebrow: t("common.eyebrow"), title: t("channel.title"), description: t("channel.description"), endpoint: "/gateway/channel", errorNamespace: "gateway", listPath: "list", permissions: { page: "gateway:channel:query", create: "gateway:channel:create", update: "gateway:channel:update", delete: "gateway:channel:delete" }, fields: [
   { key: "name", label: t("common.field.name"), required: true },
@@ -93,23 +94,12 @@ export default function Page() {
   // 新建时一并给出初始 Key（可多把）；已有渠道的 Key 在行操作「Key」里增删
   { key: "keys", label: t("channel.field.keys"), type: "textarea", table: false, createOnly: true, placeholder: t("channel.placeholder.keysCreate") },
   { key: "groups", label: t("channel.field.groups"), defaultValue: "default" },
-  { key: "models", label: t("channel.field.models"), type: "textarea", placeholder: t("channel.placeholder.models") },
+  { key: "models", label: t("channel.field.models"), type: "textarea", editable: false },
   { key: "supportedModels", label: t("channel.field.supportedModels"), type: "textarea", editable: false, table: false },
   { key: "capabilities", label: t("channel.field.capabilities"), defaultValue: "chat", placeholder: "chat,embeddings,images,rerank,audio" },
-  { key: "modelMapping", label: t("channel.field.modelMapping"), type: "textarea", table: false },
   { key: "paramOverride", label: t("channel.field.paramOverride"), type: "textarea", table: false },
-  { key: "priority", label: t("channel.field.priority"), type: "number", defaultValue: 0 },
-  { key: "weight", label: t("channel.field.weight"), type: "number", defaultValue: 1 },
-  // 成本设置不给默认值：上游几乎不可能按官方价 1:1 计费，默认 1 会把成本静默记成官方价、毛利体检与亏本拦截全部失真
-  { key: "costSource", label: t("channel.field.costSource"), type: "select", required: true, hint: t("channel.hint.costSource"), options: [
-    { label: t("channel.costSource.choose"), value: "" },
-    { label: t("channel.costSource.official"), value: "official" }, { label: t("channel.costSource.upstream"), value: "upstream" }, { label: t("channel.costSource.manual"), value: "manual" } ] },
-  { key: "costDiscount", label: t("channel.field.costDiscount"), required: true, hint: t("channel.hint.costDiscount"), placeholder: t("channel.placeholder.costDiscount") },
-  { key: "upstreamPricingFormat", label: t("channel.field.upstreamPricingFormat"), type: "select", table: false, required: true, showWhen: isUpstream, hint: t("channel.hint.upstreamPricingFormat"), options: [
-    { label: t("channel.pricingFormat.choose"), value: "" }, { label: t("channel.pricingFormat.newapi"), value: "newapi" }, { label: "OpenRouter", value: "openrouter" } ] },
-  { key: "upstreamPricingUrl", label: t("channel.field.upstreamPricingUrl"), table: false, showWhen: isUpstream, hint: t("channel.hint.upstreamPricingUrl"), placeholder: t("channel.placeholder.upstreamPricingUrl") },
-  { key: "upstreamGroupRatio", label: t("channel.field.upstreamGroupRatio"), table: false, required: true, showWhen: isUpstream, hint: t("channel.hint.upstreamGroupRatio"), placeholder: t("channel.placeholder.upstreamGroupRatio") },
-  { key: "upstreamCreditRate", label: t("channel.field.upstreamCreditRate"), table: false, required: true, showWhen: isUpstream, hint: t("channel.hint.upstreamCreditRate"), placeholder: t("channel.placeholder.upstreamCreditRate") },
+  { key: "priority", label: t("channel.field.priority"), type: "number", defaultValue: 0, hint: t("channel.hint.priority") },
+  { key: "weight", label: t("channel.field.weight"), type: "number", defaultValue: 1, hint: t("channel.hint.weight") },
   { key: "proxyUrl", label: t("channel.field.proxyUrl"), table: false },
   { key: "apiVersion", label: t("channel.field.apiVersion"), table: false, placeholder: t("channel.placeholder.apiVersion") },
   { key: "providerConfig", label: t("channel.field.providerConfig"), type: "textarea", table: false, placeholder: t("channel.placeholder.providerConfig") },
@@ -125,6 +115,7 @@ export default function Page() {
     return { ...record, keys: splitKeys(String(record.keys ?? "")) };
   } }} />
   <ChannelKeyDrawer channel={keyChannel} onClose={() => setKeyChannel(null)} />
+  {modelChannel && <ChannelModelDrawer key={modelChannel.id} channel={modelChannel} onClose={() => setModelChannel(null)} onSave={() => { void refresh(); }} />}
   <ChannelCostDrawer channel={costChannel} onClose={() => { setCostChannel(null); void refresh(); }} />
   </>;
 }
